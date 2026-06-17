@@ -37,10 +37,8 @@ export class RecurringTemplatesService {
   async remove(userId: string, id: string) {
     await this.findOne(userId, id);
 
-    return this.prisma.recurringTemplate.update({
+    return this.prisma.recurringTemplate.delete({
       where: { id },
-      data: { isActive: false },
-      include: { category: true },
     });
   }
 
