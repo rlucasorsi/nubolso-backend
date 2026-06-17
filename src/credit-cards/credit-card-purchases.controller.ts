@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { CreditCardPurchasesService } from './credit-card-purchases.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -26,5 +26,10 @@ export class CreditCardPurchasesController {
     @Body(new ZodValidationPipe(createPurchaseSchema)) data: CreatePurchaseDto,
   ) {
     return this.purchasesService.simulate(user.sub, data);
+  }
+
+  @Delete(':id')
+  remove(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.purchasesService.remove(user.sub, id);
   }
 }

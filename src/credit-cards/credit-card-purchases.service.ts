@@ -91,6 +91,31 @@ export class CreditCardPurchasesService {
     );
   }
 
+  async remove(userId: string, id: string) {
+    const purchase = await this.prisma.creditCardPurchase.findFirst({
+      where: { id, userId },
+      include: { installments: { include: { invoice: true } } },
+    });
+
+    if (!purchase) throw new NotFoundException('Compra não encontrada');
+
+    const hasPaidInvoice = purchase.installments.some((i) => i.invoice.isPaid);
+    if (hasPaidInvoice) {
+      throw new BadRequestException(
+        'Não é possível excluir uma compra com parcelas em faturas já pagas',
+      );
+    }
+
+    const invoiceIds = [...new Set(purchase.installments.map((i) => i.invoiceId))];
+
+    await this.prisma.creditCardPurchase.delete({ where: { id } });
+
+    // Remove invoices que ficaram sem parcelas
+    await this.prisma.creditCardInvoice.deleteMany({
+      where: { id: { in: invoiceIds }, installments: { none: {} } },
+    });
+  }
+
   async simulate(userId: string, dto: SimulatePurchaseDto) {
     const card = await this.prisma.creditCard.findFirst({
       where: { id: dto.cardId, userId },
