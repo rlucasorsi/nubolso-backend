@@ -1,0 +1,288 @@
+import { CreditCardInvoicesService } from './credit-card-invoices.service';
+import type { JwtUser } from '../auth/jwt-payload.type';
+import type { UpdateInvoiceDto } from './dto/update-invoice.dto';
+import type { PayInvoiceDto } from './dto/pay-invoice.dto';
+export declare class CreditCardInvoicesController {
+    private readonly invoicesService;
+    constructor(invoicesService: CreditCardInvoicesService);
+    findAllForUser(user: JwtUser, from?: string, to?: string): Promise<{
+        totalAmount: number;
+        transaction: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            amount: number;
+            type: import(".prisma/client").$Enums.TransactionType;
+            date: Date;
+            isPaid: boolean;
+            isSkipped: boolean;
+            templateId: string | null;
+            categoryId: string | null;
+            userId: string;
+        } | null;
+        card: {
+            name: string;
+            id: string;
+            createdAt: Date;
+            userId: string;
+            isActive: boolean;
+            closingDay: number;
+            dueDay: number;
+            paymentDay: number;
+        };
+        installments: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            amount: number;
+            purchaseId: string;
+            totalCount: number;
+            invoiceId: string;
+        }[];
+        id: string;
+        createdAt: Date;
+        isPaid: boolean;
+        userId: string;
+        cardId: string;
+        referenceMonth: number;
+        referenceYear: number;
+        closingDate: Date;
+        dueDate: Date;
+        paymentDate: Date;
+        paymentDateOverridden: boolean;
+        paidAmount: number | null;
+        transactionId: string | null;
+    }[]>;
+    findOne(user: JwtUser, id: string): Promise<{
+        totalAmount: number;
+        transaction: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            amount: number;
+            type: import(".prisma/client").$Enums.TransactionType;
+            date: Date;
+            isPaid: boolean;
+            isSkipped: boolean;
+            templateId: string | null;
+            categoryId: string | null;
+            userId: string;
+        } | null;
+        card: {
+            name: string;
+            id: string;
+            createdAt: Date;
+            userId: string;
+            isActive: boolean;
+            closingDay: number;
+            dueDay: number;
+            paymentDay: number;
+        };
+        installments: ({
+            purchase: {
+                id: string;
+                createdAt: Date;
+                description: string;
+                userId: string;
+                totalAmount: number;
+                installmentsCount: number;
+                purchaseDate: Date;
+                cardId: string;
+                originInvoiceId: string | null;
+            };
+        } & {
+            number: number;
+            id: string;
+            createdAt: Date;
+            amount: number;
+            purchaseId: string;
+            totalCount: number;
+            invoiceId: string;
+        })[];
+        remainderPurchases: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            userId: string;
+            totalAmount: number;
+            installmentsCount: number;
+            purchaseDate: Date;
+            cardId: string;
+            originInvoiceId: string | null;
+        }[];
+        id: string;
+        createdAt: Date;
+        isPaid: boolean;
+        userId: string;
+        cardId: string;
+        referenceMonth: number;
+        referenceYear: number;
+        closingDate: Date;
+        dueDate: Date;
+        paymentDate: Date;
+        paymentDateOverridden: boolean;
+        paidAmount: number | null;
+        transactionId: string | null;
+    }>;
+    updatePaymentDate(user: JwtUser, id: string, data: UpdateInvoiceDto): Promise<{
+        id: string;
+        createdAt: Date;
+        isPaid: boolean;
+        userId: string;
+        cardId: string;
+        referenceMonth: number;
+        referenceYear: number;
+        closingDate: Date;
+        dueDate: Date;
+        paymentDate: Date;
+        paymentDateOverridden: boolean;
+        paidAmount: number | null;
+        transactionId: string | null;
+    }>;
+    pay(user: JwtUser, id: string, data: PayInvoiceDto): Promise<{
+        totalAmount: number;
+        transaction: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            amount: number;
+            type: import(".prisma/client").$Enums.TransactionType;
+            date: Date;
+            isPaid: boolean;
+            isSkipped: boolean;
+            templateId: string | null;
+            categoryId: string | null;
+            userId: string;
+        } | null;
+        card: {
+            name: string;
+            id: string;
+            createdAt: Date;
+            userId: string;
+            isActive: boolean;
+            closingDay: number;
+            dueDay: number;
+            paymentDay: number;
+        };
+        installments: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            amount: number;
+            purchaseId: string;
+            totalCount: number;
+            invoiceId: string;
+        }[];
+        id: string;
+        createdAt: Date;
+        isPaid: boolean;
+        userId: string;
+        cardId: string;
+        referenceMonth: number;
+        referenceYear: number;
+        closingDate: Date;
+        dueDate: Date;
+        paymentDate: Date;
+        paymentDateOverridden: boolean;
+        paidAmount: number | null;
+        transactionId: string | null;
+    }>;
+    reopen(user: JwtUser, id: string): Promise<{
+        totalAmount: number;
+        transaction: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            amount: number;
+            type: import(".prisma/client").$Enums.TransactionType;
+            date: Date;
+            isPaid: boolean;
+            isSkipped: boolean;
+            templateId: string | null;
+            categoryId: string | null;
+            userId: string;
+        } | null;
+        card: {
+            name: string;
+            id: string;
+            createdAt: Date;
+            userId: string;
+            isActive: boolean;
+            closingDay: number;
+            dueDay: number;
+            paymentDay: number;
+        };
+        installments: {
+            number: number;
+            id: string;
+            createdAt: Date;
+            amount: number;
+            purchaseId: string;
+            totalCount: number;
+            invoiceId: string;
+        }[];
+        id: string;
+        createdAt: Date;
+        isPaid: boolean;
+        userId: string;
+        cardId: string;
+        referenceMonth: number;
+        referenceYear: number;
+        closingDate: Date;
+        dueDate: Date;
+        paymentDate: Date;
+        paymentDateOverridden: boolean;
+        paidAmount: number | null;
+        transactionId: string | null;
+    }>;
+    findAllForCard(user: JwtUser, cardId: string): Promise<{
+        totalAmount: number;
+        transaction: {
+            id: string;
+            createdAt: Date;
+            description: string;
+            amount: number;
+            type: import(".prisma/client").$Enums.TransactionType;
+            date: Date;
+            isPaid: boolean;
+            isSkipped: boolean;
+            templateId: string | null;
+            categoryId: string | null;
+            userId: string;
+        } | null;
+        installments: ({
+            purchase: {
+                id: string;
+                createdAt: Date;
+                description: string;
+                userId: string;
+                totalAmount: number;
+                installmentsCount: number;
+                purchaseDate: Date;
+                cardId: string;
+                originInvoiceId: string | null;
+            };
+        } & {
+            number: number;
+            id: string;
+            createdAt: Date;
+            amount: number;
+            purchaseId: string;
+            totalCount: number;
+            invoiceId: string;
+        })[];
+        id: string;
+        createdAt: Date;
+        isPaid: boolean;
+        userId: string;
+        cardId: string;
+        referenceMonth: number;
+        referenceYear: number;
+        closingDate: Date;
+        dueDate: Date;
+        paymentDate: Date;
+        paymentDateOverridden: boolean;
+        paidAmount: number | null;
+        transactionId: string | null;
+    }[]>;
+}
