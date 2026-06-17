@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                         String               @id @default(uuid())
+  email                      String               @unique
+  passwordHash               String?
+  name                       String
+  googleId                   String?              @unique
+  isEmailVerified            Boolean              @default(true)
+  verificationCode           String?
+  verificationCodeExpiresAt  DateTime?
+  verificationAttempts       Int                  @default(0)
+  passwordResetCode          String?
+  passwordResetCodeExpiresAt DateTime?
+  currentBalance     Float                @default(0)
+  balanceStartDate   DateTime?
+  createdAt          DateTime             @default(now())
+  transactions       Transaction[]
+  recurringTemplates RecurringTemplate[]
+  categories         Category[]
+  goals              Goal[]
+  creditCards        CreditCard[]
+  creditCardPurchases CreditCardPurchase[]
+  creditCardInvoices  CreditCardInvoice[]
+}
+
+model RecurringTemplate {
+  id              String          @id @default(uuid())
+  description     String
+  estimatedAmount Float
+  type            TransactionType
+  dayOfMonth      Int
+  isActive        Boolean         @default(true)
+  categoryId      String?
+  userId          String
+  category        Category?       @relation(fields: [categoryId], references: [id])
+  user            User            @relation(fields: [userId], references: [id])
+  createdAt       DateTime        @default(now())
+  instances       Transaction[]
+
+  @@index([userId])
+}
+
+model Category {
+  id                 String              @id @default(uuid())
+  name               String
+  color              String?
+  type               TransactionType
+  userId             String
+  user               User                @relation(fields: [userId], references: [id])
+  transactions       Transaction[]
+  recurringTemplates RecurringTemplate[]
+
+  @@index([userId])
+}
+
+model Transaction {
+  id          String             @id @default(uuid())
+  description String
+  amount      Float
+  type        TransactionType
+  date        DateTime
+  isPaid      Boolean            @default(false)
+  isSkipped   Boolean            @default(false)
+  templateId  String?
+  template    RecurringTemplate? @relation(fields: [templateId], references: [id])
+  categoryId  String?
+  userId      String
+  category    Category?          @relation(fields: [categoryId], references: [id])
+  user        User               @relation(fields: [userId], references: [id])
+  createdAt   DateTime           @default(now())
+
+  creditCardInvoice CreditCardInvoice?
+
+  @@unique([templateId, date])
+  @@index([userId])
+  @@index([templateId])
+  @@index([date])
+  @@index([categoryId])
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  SPENDING
+}
+
+model Goal {
+  id            String             @id @default(uuid())
+  name          String
+  description   String             @default("")
+  icon          String
+  color         String             @default("primary")
+  targetAmount  Float
+  savedAmount   Float              @default(0)
+  deadline      DateTime
+  userId        String
+  user          User               @relation(fields: [userId], references: [id])
+  createdAt     DateTime           @default(now())
+  contributions GoalContribution[]
+
+  @@index([userId])
+}
+
+model GoalContribution {
+  id          String   @id @default(uuid())
+  amount      Float
+  description String
+  date        DateTime
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([goalId])
+}
+
+model CreditCard {
+  id         String   @id @default(uuid())
+  name       String
+  closingDay Int
+  dueDay     Int
+  paymentDay Int
+  isActive   Boolean  @default(true)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+
+  purchases CreditCardPurchase[]
+  invoices  CreditCardInvoice[]
+
+  @@index([userId])
+}
+
+model CreditCardPurchase {
+  id                String   @id @default(uuid())
+  description       String
+  totalAmount       Float
+  installmentsCount Int
+  purchaseDate      DateTime
+  cardId            String
+  card              CreditCard @relation(fields: [cardId], references: [id])
+  userId            String
+  user              User       @relation(fields: [userId], references: [id])
+
+  originInvoiceId String?
+  originInvoice   CreditCardInvoice? @relation("PurchaseOrigin", fields: [originInvoiceId], references: [id])
+
+  createdAt    DateTime @default(now())
+  installments CreditCardInstallment[]
+
+  @@index([userId])
+  @@index([cardId])
+}
+
+model CreditCardInstallment {
+  id         String   @id @default(uuid())
+  number     Int
+  totalCount Int
+  amount     Float
+
+  purchaseId String
+  purchase   CreditCardPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  invoiceId String
+  invoice   CreditCardInvoice @relation(fields: [invoiceId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([purchaseId])
+  @@index([invoiceId])
+}
+
+model CreditCardInvoice {
+  id             String @id @default(uuid())
+  referenceMonth Int
+  referenceYear  Int
+
+  closingDate DateTime
+  dueDate     DateTime
+  paymentDate DateTime
+  paymentDateOverridden Boolean @default(false)
+
+  cardId String
+  card   CreditCard @relation(fields: [cardId], references: [id])
+  userId String
+  user   User       @relation(fields: [userId], references: [id])
+
+  isPaid     Boolean @default(false)
+  paidAmount Float?
+
+  transactionId String?      @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  installments       CreditCardInstallment[]
+  remainderPurchases CreditCardPurchase[] @relation("PurchaseOrigin")
+
+  createdAt DateTime @default(now())
+
+  @@unique([cardId, referenceYear, referenceMonth])
+  @@index([userId])
+  @@index([cardId])
+  @@index([paymentDate])
+}
