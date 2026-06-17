@@ -33,8 +33,9 @@ export function addMonths(
   return { year: Math.floor(total / 12), month: (total % 12) + 1 };
 }
 
-// Installment 1 of a new purchase: if purchaseDate.day <= closingDay (clamped),
+// Installment 1 of a new purchase: if purchaseDate.day < closingDay (clamped),
 // it lands in THIS month's invoice; otherwise NEXT month's.
+// A purchase ON the closing day goes to the next invoice (invoice is already closed).
 export function getBaseInvoiceMonth(
   purchaseDate: Date,
   closingDay: number,
@@ -43,7 +44,7 @@ export function getBaseInvoiceMonth(
   const m = purchaseDate.getUTCMonth() + 1;
   const d = purchaseDate.getUTCDate();
   const closingThisMonth = clampDay(y, m, closingDay);
-  return d <= closingThisMonth ? { year: y, month: m } : addMonths(y, m, 1);
+  return d < closingThisMonth ? { year: y, month: m } : addMonths(y, m, 1);
 }
 
 // Installment n (1-based) = base month + (n-1)
