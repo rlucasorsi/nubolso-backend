@@ -4,5 +4,6 @@ export declare class MailerService {
     constructor();
     sendVerificationCode(to: string, name: string, code: string): Promise<void>;
     sendPasswordResetCode(to: string, name: string, code: string): Promise<void>;
+    private escapeHtml;
     private send;
 }

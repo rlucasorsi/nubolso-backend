@@ -62,10 +62,20 @@ let MailerService = MailerService_1 = class MailerService {
                 : null;
     }
     async sendVerificationCode(to, name, code) {
-        await this.send(to, 'Confirme seu e-mail - CashFlow', `<p>Olá, ${name}!</p><p>Seu código de confirmação é:</p><h2>${code}</h2><p>Esse código expira em 10 minutos.</p>`);
+        const safeName = this.escapeHtml(name);
+        await this.send(to, 'Confirme seu e-mail - CashFlow', `<p>Olá, ${safeName}!</p><p>Seu código de confirmação é:</p><h2>${code}</h2><p>Esse código expira em 10 minutos.</p>`);
     }
     async sendPasswordResetCode(to, name, code) {
-        await this.send(to, 'Redefinição de senha - CashFlow', `<p>Olá, ${name}!</p><p>Use o código abaixo para redefinir sua senha:</p><h2>${code}</h2><p>Esse código expira em 10 minutos. Se você não solicitou essa redefinição, ignore este e-mail.</p>`);
+        const safeName = this.escapeHtml(name);
+        await this.send(to, 'Redefinição de senha - CashFlow', `<p>Olá, ${safeName}!</p><p>Use o código abaixo para redefinir sua senha:</p><h2>${code}</h2><p>Esse código expira em 10 minutos. Se você não solicitou essa redefinição, ignore este e-mail.</p>`);
+    }
+    escapeHtml(text) {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
     async send(to, subject, html) {
         if (!this.transporter) {
