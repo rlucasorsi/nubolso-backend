@@ -6,43 +6,43 @@ export declare class CreditCardsController {
     private readonly creditCardsService;
     constructor(creditCardsService: CreditCardsService);
     findAll(user: JwtUser): Promise<{
-        name: string;
-        id: string;
-        createdAt: Date;
-        userId: string;
-        isActive: boolean;
         closingDay: number;
         dueDay: number;
         paymentDay: number;
+        name: string;
+        isActive: boolean;
+        id: string;
+        userId: string;
+        createdAt: Date;
     }[]>;
     create(user: JwtUser, data: CreateCreditCardDto): Promise<{
-        name: string;
-        id: string;
-        createdAt: Date;
-        userId: string;
-        isActive: boolean;
         closingDay: number;
         dueDay: number;
         paymentDay: number;
+        name: string;
+        isActive: boolean;
+        id: string;
+        userId: string;
+        createdAt: Date;
     }>;
     update(user: JwtUser, id: string, data: UpdateCreditCardDto): Promise<{
-        name: string;
-        id: string;
-        createdAt: Date;
-        userId: string;
-        isActive: boolean;
         closingDay: number;
         dueDay: number;
         paymentDay: number;
+        name: string;
+        isActive: boolean;
+        id: string;
+        userId: string;
+        createdAt: Date;
     }>;
     remove(user: JwtUser, id: string): Promise<{
-        name: string;
-        id: string;
-        createdAt: Date;
-        userId: string;
-        isActive: boolean;
         closingDay: number;
         dueDay: number;
         paymentDay: number;
+        name: string;
+        isActive: boolean;
+        id: string;
+        userId: string;
+        createdAt: Date;
     }>;
 }

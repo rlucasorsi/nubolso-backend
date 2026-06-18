@@ -24,6 +24,7 @@ export const createPurchaseSchema = z.object({
   totalAmount: z.number().positive('Valor deve ser positivo'),
   installmentsCount: z.number().int().min(1).max(48),
   purchaseDate: isoDate,
+  strategy: z.enum(['FIRST', 'LAST']).optional().default('LAST'),
 });
 
 export const payInvoiceSchema = z.object({

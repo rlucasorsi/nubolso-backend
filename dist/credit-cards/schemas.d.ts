@@ -18,6 +18,10 @@ export declare const createPurchaseSchema: z.ZodObject<{
     totalAmount: z.ZodNumber;
     installmentsCount: z.ZodNumber;
     purchaseDate: z.ZodString;
+    strategy: z.ZodDefault<z.ZodOptional<z.ZodEnum<{
+        FIRST: "FIRST";
+        LAST: "LAST";
+    }>>>;
 }, z.core.$strip>;
 export declare const payInvoiceSchema: z.ZodObject<{
     amount: z.ZodNumber;

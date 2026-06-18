@@ -30,6 +30,9 @@ let CreditCardPurchasesController = class CreditCardPurchasesController {
     simulate(user, data) {
         return this.purchasesService.simulate(user.sub, data);
     }
+    remove(user, id) {
+        return this.purchasesService.remove(user.sub, id);
+    }
 };
 exports.CreditCardPurchasesController = CreditCardPurchasesController;
 __decorate([
@@ -48,6 +51,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], CreditCardPurchasesController.prototype, "simulate", null);
+__decorate([
+    (0, common_1.Delete)(':id'),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], CreditCardPurchasesController.prototype, "remove", null);
 exports.CreditCardPurchasesController = CreditCardPurchasesController = __decorate([
     (0, common_1.Controller)('credit-cards/purchases'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

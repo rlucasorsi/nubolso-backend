@@ -21,7 +21,7 @@ let CreditCardPurchasesService = class CreditCardPurchasesService {
     }
     buildInstallmentPlan(card, dto) {
         const purchaseDate = new Date(dto.purchaseDate);
-        const amounts = (0, date_helpers_1.distributeAmounts)(dto.totalAmount, dto.installmentsCount);
+        const amounts = (0, date_helpers_1.distributeAmounts)(dto.totalAmount, dto.installmentsCount, dto.strategy);
         return amounts.map((amount, idx) => {
             const number = idx + 1;
             const { year, month } = (0, date_helpers_1.getInstallmentInvoiceMonth)(purchaseDate, card.closingDay, number);
@@ -67,6 +67,23 @@ let CreditCardPurchasesService = class CreditCardPurchasesService {
                 include: { installments: { include: { invoice: true } } },
             });
         }, { timeout: 15000 });
+    }
+    async remove(userId, id) {
+        const purchase = await this.prisma.creditCardPurchase.findFirst({
+            where: { id, userId },
+            include: { installments: { include: { invoice: true } } },
+        });
+        if (!purchase)
+            throw new common_1.NotFoundException('Compra não encontrada');
+        const hasPaidInvoice = purchase.installments.some((i) => i.invoice.isPaid);
+        if (hasPaidInvoice) {
+            throw new common_1.BadRequestException('Não é possível excluir uma compra com parcelas em faturas já pagas');
+        }
+        const invoiceIds = [...new Set(purchase.installments.map((i) => i.invoiceId))];
+        await this.prisma.creditCardPurchase.delete({ where: { id } });
+        await this.prisma.creditCardInvoice.deleteMany({
+            where: { id: { in: invoiceIds }, installments: { none: {} } },
+        });
     }
     async simulate(userId, dto) {
         const card = await this.prisma.creditCard.findFirst({

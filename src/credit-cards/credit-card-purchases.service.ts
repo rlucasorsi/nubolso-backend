@@ -27,10 +27,11 @@ export class CreditCardPurchasesService {
       totalAmount: number;
       installmentsCount: number;
       purchaseDate: string;
+      strategy?: 'FIRST' | 'LAST';
     },
   ): InstallmentPlanItem[] {
     const purchaseDate = new Date(dto.purchaseDate);
-    const amounts = distributeAmounts(dto.totalAmount, dto.installmentsCount);
+    const amounts = distributeAmounts(dto.totalAmount, dto.installmentsCount, dto.strategy);
 
     return amounts.map((amount, idx) => {
       const number = idx + 1;

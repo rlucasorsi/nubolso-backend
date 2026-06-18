@@ -23,6 +23,7 @@ exports.createPurchaseSchema = zod_1.z.object({
     totalAmount: zod_1.z.number().positive('Valor deve ser positivo'),
     installmentsCount: zod_1.z.number().int().min(1).max(48),
     purchaseDate: isoDate,
+    strategy: zod_1.z.enum(['FIRST', 'LAST']).optional().default('LAST'),
 });
 exports.payInvoiceSchema = zod_1.z.object({
     amount: zod_1.z.number().positive('Valor deve ser positivo'),

@@ -40,10 +40,8 @@ let RecurringTemplatesService = class RecurringTemplatesService {
     }
     async remove(userId, id) {
         await this.findOne(userId, id);
-        return this.prisma.recurringTemplate.update({
+        return this.prisma.recurringTemplate.delete({
             where: { id },
-            data: { isActive: false },
-            include: { category: true },
         });
     }
     async realize(userId, id, data) {

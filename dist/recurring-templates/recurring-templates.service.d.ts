@@ -64,14 +64,6 @@ export declare class RecurringTemplatesService {
         isActive: boolean;
     }>;
     remove(userId: string, id: string): Promise<{
-        category: {
-            name: string;
-            id: string;
-            type: import(".prisma/client").$Enums.TransactionType;
-            userId: string;
-            color: string | null;
-        } | null;
-    } & {
         id: string;
         createdAt: Date;
         description: string;

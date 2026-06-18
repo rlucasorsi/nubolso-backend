@@ -22,4 +22,4 @@ export declare function getRemainderBaseMonth(originInvoice: {
     referenceYear: number;
     referenceMonth: number;
 }): YearMonth;
-export declare function distributeAmounts(totalAmount: number, count: number): number[];
+export declare function distributeAmounts(totalAmount: number, count: number, strategy?: 'FIRST' | 'LAST'): number[];

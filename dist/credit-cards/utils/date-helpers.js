@@ -23,7 +23,7 @@ function getBaseInvoiceMonth(purchaseDate, closingDay) {
     const m = purchaseDate.getUTCMonth() + 1;
     const d = purchaseDate.getUTCDate();
     const closingThisMonth = clampDay(y, m, closingDay);
-    return d <= closingThisMonth ? { year: y, month: m } : addMonths(y, m, 1);
+    return d < closingThisMonth ? { year: y, month: m } : addMonths(y, m, 1);
 }
 function getInstallmentInvoiceMonth(purchaseDate, closingDay, n) {
     const base = getBaseInvoiceMonth(purchaseDate, closingDay);
@@ -44,13 +44,19 @@ function computeInvoiceDates(card, year, month) {
 function getRemainderBaseMonth(originInvoice) {
     return addMonths(originInvoice.referenceYear, originInvoice.referenceMonth, 1);
 }
-function distributeAmounts(totalAmount, count) {
+function distributeAmounts(totalAmount, count, strategy = 'LAST') {
     const cents = Math.round(totalAmount * 100);
     const base = Math.floor(cents / count);
     const remainder = cents - base * count;
     const amounts = Array(count).fill(base);
-    for (let i = 0; i < remainder; i++)
-        amounts[count - 1 - i] += 1;
+    for (let i = 0; i < remainder; i++) {
+        if (strategy === 'FIRST') {
+            amounts[i] += 1;
+        }
+        else {
+            amounts[count - 1 - i] += 1;
+        }
+    }
     return amounts.map((c) => c / 100);
 }
 //# sourceMappingURL=date-helpers.js.map
