@@ -25,11 +25,10 @@ export class MailerService {
     name: string,
     code: string,
   ): Promise<void> {
-    const safeName = this.escapeHtml(name);
     await this.send(
       to,
       'Confirme seu e-mail - CashFlow',
-      `<p>Olá, ${safeName}!</p><p>Seu código de confirmação é:</p><h2>${code}</h2><p>Esse código expira em 10 minutos.</p>`,
+      `<p>Olá, ${name}!</p><p>Seu código de confirmação é:</p><h2>${code}</h2><p>Esse código expira em 10 minutos.</p>`,
     );
   }
 
@@ -38,21 +37,11 @@ export class MailerService {
     name: string,
     code: string,
   ): Promise<void> {
-    const safeName = this.escapeHtml(name);
     await this.send(
       to,
       'Redefinição de senha - CashFlow',
-      `<p>Olá, ${safeName}!</p><p>Use o código abaixo para redefinir sua senha:</p><h2>${code}</h2><p>Esse código expira em 10 minutos. Se você não solicitou essa redefinição, ignore este e-mail.</p>`,
+      `<p>Olá, ${name}!</p><p>Use o código abaixo para redefinir sua senha:</p><h2>${code}</h2><p>Esse código expira em 10 minutos. Se você não solicitou essa redefinição, ignore este e-mail.</p>`,
     );
-  }
-
-  private escapeHtml(text: string): string {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
