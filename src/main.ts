@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL'];
@@ -18,8 +17,6 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
-
-  app.use(helmet());
 
   const isProd = process.env.NODE_ENV === 'production';
   const allowedOrigins = isProd
