@@ -34,7 +34,6 @@ let TransactionsService = class TransactionsService {
                 category: true,
             },
             orderBy: { date: 'desc' },
-            take: 2000,
         });
     }
     async create(userId, data) {

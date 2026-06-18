@@ -49,7 +49,6 @@ const google_auth_library_1 = require("google-auth-library");
 const users_service_1 = require("../users/users.service");
 const mailer_service_1 = require("../mailer/mailer.service");
 const bcrypt = __importStar(require("bcrypt"));
-const crypto_1 = require("crypto");
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
 const MAX_VERIFICATION_ATTEMPTS = 5;
@@ -196,7 +195,7 @@ let AuthService = class AuthService {
             audience: process.env.GOOGLE_CLIENT_ID,
         });
         const payload = ticket.getPayload();
-        if (!payload?.email || !payload.email_verified) {
+        if (!payload?.email) {
             throw new common_1.UnauthorizedException('Token do Google inválido.');
         }
         let user = await this.usersService.findByEmail(payload.email);
@@ -231,7 +230,7 @@ let AuthService = class AuthService {
         };
     }
     generateCode() {
-        return String((0, crypto_1.randomInt)(100000, 1000000));
+        return String(Math.floor(100000 + Math.random() * 900000));
     }
 };
 exports.AuthService = AuthService;
