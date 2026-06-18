@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 
-const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL'];
+const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL', 'RESEND_API_KEY'];
 
 function assertRequiredEnv(): void {
   const missing = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
