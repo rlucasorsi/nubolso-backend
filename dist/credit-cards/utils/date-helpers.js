@@ -49,13 +49,8 @@ function distributeAmounts(totalAmount, count, strategy = 'LAST') {
     const base = Math.floor(cents / count);
     const remainder = cents - base * count;
     const amounts = Array(count).fill(base);
-    for (let i = 0; i < remainder; i++) {
-        if (strategy === 'FIRST') {
-            amounts[i] += 1;
-        }
-        else {
-            amounts[count - 1 - i] += 1;
-        }
+    if (remainder > 0) {
+        amounts[strategy === 'FIRST' ? 0 : count - 1] += remainder;
     }
     return amounts.map((c) => c / 100);
 }

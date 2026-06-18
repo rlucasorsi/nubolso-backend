@@ -100,8 +100,7 @@ export function getRemainderBaseMonth(originInvoice: {
 }
 
 // Split totalAmount into `count` installments.
-// 'FIRST': extra cents go to the first installments.
-// 'LAST' (default): extra cents go to the last installments.
+// All remainder cents go to one installment: first ('FIRST') or last ('LAST').
 export function distributeAmounts(
   totalAmount: number,
   count: number,
@@ -111,12 +110,8 @@ export function distributeAmounts(
   const base = Math.floor(cents / count);
   const remainder = cents - base * count;
   const amounts = Array(count).fill(base);
-  for (let i = 0; i < remainder; i++) {
-    if (strategy === 'FIRST') {
-      amounts[i] += 1;
-    } else {
-      amounts[count - 1 - i] += 1;
-    }
+  if (remainder > 0) {
+    amounts[strategy === 'FIRST' ? 0 : count - 1] += remainder;
   }
   return amounts.map((c) => c / 100);
 }
