@@ -17,6 +17,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
 import * as bcrypt from 'bcrypt';
+import { randomInt } from 'crypto';
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -216,7 +217,7 @@ export class AuthService {
     });
     const payload = ticket.getPayload();
 
-    if (!payload?.email) {
+    if (!payload?.email || !payload.email_verified) {
       throw new UnauthorizedException('Token do Google inválido.');
     }
 
@@ -255,6 +256,6 @@ export class AuthService {
   }
 
   private generateCode(): string {
-    return String(Math.floor(100000 + Math.random() * 900000));
+    return String(randomInt(100000, 1000000));
   }
 }

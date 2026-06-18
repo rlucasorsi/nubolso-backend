@@ -13,7 +13,7 @@ import { JwtStrategy } from './jwt.strategy';
     MailerModule,
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'troque-antes-de-subir',
+      secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as any },
     }),
   ],
