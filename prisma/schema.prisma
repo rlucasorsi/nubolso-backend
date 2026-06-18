@@ -25,6 +25,8 @@ model User {
   passwordResetCodeExpiresAt DateTime?
   currentBalance     Float                @default(0)
   balanceStartDate   DateTime?
+  greenThreshold     Float                @default(0)
+  yellowThreshold    Float                @default(0)
   createdAt          DateTime             @default(now())
   transactions       Transaction[]
   recurringTemplates RecurringTemplate[]

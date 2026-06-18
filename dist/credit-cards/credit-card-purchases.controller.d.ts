@@ -8,16 +8,16 @@ export declare class CreditCardPurchasesController {
         installments: ({
             invoice: {
                 id: string;
-                cardId: string;
-                userId: string;
                 createdAt: Date;
+                isPaid: boolean;
+                userId: string;
+                cardId: string;
                 referenceMonth: number;
                 referenceYear: number;
                 closingDate: Date;
                 dueDate: Date;
                 paymentDate: Date;
                 paymentDateOverridden: boolean;
-                isPaid: boolean;
                 paidAmount: number | null;
                 transactionId: string | null;
             };
@@ -25,21 +25,21 @@ export declare class CreditCardPurchasesController {
             number: number;
             id: string;
             createdAt: Date;
-            totalCount: number;
             amount: number;
             purchaseId: string;
+            totalCount: number;
             invoiceId: string;
         })[];
     } & {
         id: string;
+        createdAt: Date;
         description: string;
+        userId: string;
         totalAmount: number;
         installmentsCount: number;
         purchaseDate: Date;
         cardId: string;
-        userId: string;
         originInvoiceId: string | null;
-        createdAt: Date;
     }) | null>;
     simulate(user: JwtUser, data: CreatePurchaseDto): Promise<{
         installments: {

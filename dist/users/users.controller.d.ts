@@ -17,6 +17,8 @@ export declare class UsersController {
         passwordResetCodeExpiresAt: Date | null;
         currentBalance: number;
         balanceStartDate: Date | null;
+        greenThreshold: number;
+        yellowThreshold: number;
         createdAt: Date;
     }>;
     updateMe(user: JwtUser, data: UpdateUserDto): Promise<{
@@ -32,6 +34,8 @@ export declare class UsersController {
         passwordResetCodeExpiresAt: Date | null;
         currentBalance: number;
         balanceStartDate: Date | null;
+        greenThreshold: number;
+        yellowThreshold: number;
         createdAt: Date;
     }>;
 }

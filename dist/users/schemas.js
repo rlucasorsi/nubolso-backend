@@ -7,5 +7,7 @@ exports.updateUserSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).optional(),
     currentBalance: zod_1.z.number().optional(),
     balanceStartDate: isoDate.optional(),
+    greenThreshold: zod_1.z.number().min(0).optional(),
+    yellowThreshold: zod_1.z.number().min(0).optional(),
 });
 //# sourceMappingURL=schemas.js.map
