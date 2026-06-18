@@ -187,6 +187,7 @@ export const DISPOSABLE_DOMAINS = new Set([
   'yuurok.com', 'zehnminuten.de', 'zehnminutenmail.de',
   'zetmail.com', 'zippymail.info', 'zoaxe.com', 'zoemail.net',
   'zoemail.org', 'zomg.info',
+  'tuamaeaquelaursa.com',
 ]);
 
 export function isDisposableDomain(email: string): boolean {
