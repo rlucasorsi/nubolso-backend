@@ -26,6 +26,7 @@ export class TransactionsService {
         category: true,
       },
       orderBy: { date: 'desc' },
+      take: 2000,
     });
   }
 
