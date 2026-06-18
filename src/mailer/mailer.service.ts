@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Resend } from 'resend';
+import { codeEmailTemplate } from './templates/code-email.template.js';
 
 @Injectable()
 export class MailerService {
@@ -18,7 +19,12 @@ export class MailerService {
     await this.send(
       to,
       'Confirme seu e-mail - Nubolso',
-      `<p>Olá, ${safeName}!</p><p>Seu código de confirmação é:</p><h2>${code}</h2><p>Esse código expira em 10 minutos.</p>`,
+      codeEmailTemplate({
+        name: safeName,
+        code,
+        title: 'Confirme seu e-mail',
+        subtitle: 'Use o código abaixo para ativar sua conta.',
+      }),
     );
   }
 
@@ -27,7 +33,13 @@ export class MailerService {
     await this.send(
       to,
       'Redefinição de senha - Nubolso',
-      `<p>Olá, ${safeName}!</p><p>Use o código abaixo para redefinir sua senha:</p><h2>${code}</h2><p>Esse código expira em 10 minutos. Se você não solicitou essa redefinição, ignore este e-mail.</p>`,
+      codeEmailTemplate({
+        name: safeName,
+        code,
+        title: 'Redefinição de senha',
+        subtitle: 'Use o código abaixo para criar uma nova senha.',
+        footerNote: 'Se você não solicitou essa redefinição, ignore este e-mail. Sua senha permanece a mesma.',
+      }),
     );
   }
 
