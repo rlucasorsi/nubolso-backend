@@ -26,7 +26,6 @@ async function bootstrap() {
         : ['http://localhost:3001', 'http://localhost:3000', 'https://nubolso.com'];
     app.enableCors({
         origin: allowedOrigins,
-        credentials: true,
     });
     const port = process.env.PORT || 3000;
     await app.listen(port);
