@@ -1,6 +1,8 @@
+import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -22,6 +24,10 @@ import { CreditCardsModule } from './credit-cards/credit-cards.module';
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60_000, limit: 100 },
     ]),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+      serveRoot: '/public',
+    }),
     PrismaModule,
     AuthModule,
     UsersModule,

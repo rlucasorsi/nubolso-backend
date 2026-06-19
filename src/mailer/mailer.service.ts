@@ -8,10 +8,14 @@ export class MailerService {
   private readonly resend: Resend | null;
   private readonly from: string;
 
+  private readonly logoUrl: string | undefined;
+
   constructor() {
     const apiKey = process.env.RESEND_API_KEY;
     this.from = process.env.RESEND_FROM || 'Nubolso <no-reply@nubolso.com>';
     this.resend = apiKey ? new Resend(apiKey) : null;
+    const appUrl = process.env.APP_URL;
+    this.logoUrl = appUrl ? `${appUrl}/public/logo.svg` : undefined;
   }
 
   async sendVerificationCode(to: string, name: string, code: string): Promise<void> {
@@ -24,6 +28,7 @@ export class MailerService {
         code,
         title: 'Confirme seu e-mail',
         subtitle: 'Use o código abaixo para ativar sua conta.',
+        logoUrl: this.logoUrl,
       }),
     );
   }
@@ -39,6 +44,7 @@ export class MailerService {
         title: 'Redefinição de senha',
         subtitle: 'Use o código abaixo para criar uma nova senha.',
         footerNote: 'Se você não solicitou essa redefinição, ignore este e-mail. Sua senha permanece a mesma.',
+        logoUrl: this.logoUrl,
       }),
     );
   }
