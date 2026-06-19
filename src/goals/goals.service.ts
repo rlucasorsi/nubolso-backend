@@ -12,6 +12,7 @@ export class GoalsService {
     return this.prisma.goal.findMany({
       where: { userId },
       orderBy: { createdAt: 'asc' },
+      include: { contributions: { orderBy: { date: 'desc' } } },
     });
   }
 
