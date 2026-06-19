@@ -10,7 +10,7 @@ export class MailerService {
 
   constructor() {
     const apiKey = process.env.RESEND_API_KEY;
-    this.from = process.env.RESEND_FROM || 'Nubolso <onboarding@resend.dev>';
+    this.from = process.env.RESEND_FROM || 'Nubolso <no-reply@nubolso.com>';
     this.resend = apiKey ? new Resend(apiKey) : null;
   }
 
