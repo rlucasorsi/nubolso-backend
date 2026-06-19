@@ -1,43 +1,10 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -45,39 +12,59 @@ var MailerService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MailerService = void 0;
 const common_1 = require("@nestjs/common");
-const nodemailer = __importStar(require("nodemailer"));
+const resend_1 = require("resend");
+const code_email_template_js_1 = require("./templates/code-email.template.js");
 let MailerService = MailerService_1 = class MailerService {
     logger = new common_1.Logger(MailerService_1.name);
-    transporter;
+    resend;
+    from;
     constructor() {
-        const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
-        this.transporter =
-            SMTP_HOST && SMTP_USER && SMTP_PASS
-                ? nodemailer.createTransport({
-                    host: SMTP_HOST,
-                    port: Number(SMTP_PORT) || 587,
-                    secure: Number(SMTP_PORT) === 465,
-                    auth: { user: SMTP_USER, pass: SMTP_PASS },
-                })
-                : null;
+        const apiKey = process.env.RESEND_API_KEY;
+        this.from = process.env.RESEND_FROM || 'Nubolso <no-reply@nubolso.com>';
+        this.resend = apiKey ? new resend_1.Resend(apiKey) : null;
     }
     async sendVerificationCode(to, name, code) {
-        await this.send(to, 'Confirme seu e-mail - CashFlow', `<p>Olá, ${name}!</p><p>Seu código de confirmação é:</p><h2>${code}</h2><p>Esse código expira em 10 minutos.</p>`);
+        const safeName = this.escapeHtml(name);
+        await this.send(to, 'Confirme seu e-mail - Nubolso', (0, code_email_template_js_1.codeEmailTemplate)({
+            name: safeName,
+            code,
+            title: 'Confirme seu e-mail',
+            subtitle: 'Use o código abaixo para ativar sua conta.',
+        }));
     }
     async sendPasswordResetCode(to, name, code) {
-        await this.send(to, 'Redefinição de senha - CashFlow', `<p>Olá, ${name}!</p><p>Use o código abaixo para redefinir sua senha:</p><h2>${code}</h2><p>Esse código expira em 10 minutos. Se você não solicitou essa redefinição, ignore este e-mail.</p>`);
+        const safeName = this.escapeHtml(name);
+        await this.send(to, 'Redefinição de senha - Nubolso', (0, code_email_template_js_1.codeEmailTemplate)({
+            name: safeName,
+            code,
+            title: 'Redefinição de senha',
+            subtitle: 'Use o código abaixo para criar uma nova senha.',
+            footerNote: 'Se você não solicitou essa redefinição, ignore este e-mail. Sua senha permanece a mesma.',
+        }));
+    }
+    escapeHtml(text) {
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
     async send(to, subject, html) {
-        if (!this.transporter) {
+        if (!this.resend) {
             this.logger.warn(`[DEV] E-mail para ${to} - ${subject}\n${html}`);
             return;
         }
-        await this.transporter.sendMail({
-            from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        const { error } = await this.resend.emails.send({
+            from: this.from,
             to,
             subject,
             html,
         });
+        if (error) {
+            this.logger.error(`Falha ao enviar e-mail para ${to}: ${error.message}`);
+            throw new Error(`Falha ao enviar e-mail: ${error.message}`);
+        }
     }
 };
 exports.MailerService = MailerService;

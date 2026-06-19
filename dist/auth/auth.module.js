@@ -25,7 +25,7 @@ exports.AuthModule = AuthModule = __decorate([
             mailer_module_1.MailerModule,
             passport_1.PassportModule,
             jwt_1.JwtModule.register({
-                secret: process.env.JWT_SECRET || 'troque-antes-de-subir',
+                secret: process.env.JWT_SECRET,
                 signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') },
             }),
         ],
