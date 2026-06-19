@@ -16,7 +16,7 @@ import { ResendCodeDto } from './dto/resend-code.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { randomInt } from 'crypto';
 
 const CODE_TTL_MS = 10 * 60 * 1000;
