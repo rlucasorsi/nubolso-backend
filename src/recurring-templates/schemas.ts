@@ -3,22 +3,37 @@ import { z } from 'zod';
 const transactionType = z.enum(['INCOME', 'EXPENSE', 'SPENDING']);
 const isoDate = z.string().refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
 
-export const createRecurringTemplateSchema = z.object({
-  description: z.string().min(1, 'Descrição é obrigatória'),
-  estimatedAmount: z.number().positive('Valor deve ser positivo'),
-  type: transactionType,
-  dayOfMonth: z.number().int().min(1).max(31),
-  categoryId: z.string().uuid().optional(),
-});
+const endConditionRefine = (data: { endDate?: string; totalOccurrences?: number }) =>
+  !(data.endDate && data.totalOccurrences);
 
-export const updateRecurringTemplateSchema = z.object({
-  description: z.string().min(1).optional(),
-  estimatedAmount: z.number().positive().optional(),
-  type: transactionType.optional(),
-  dayOfMonth: z.number().int().min(1).max(31).optional(),
-  categoryId: z.string().uuid().optional(),
-  isActive: z.boolean().optional(),
-});
+export const createRecurringTemplateSchema = z
+  .object({
+    description: z.string().min(1, 'Descrição é obrigatória'),
+    estimatedAmount: z.number().positive('Valor deve ser positivo'),
+    type: transactionType,
+    dayOfMonth: z.number().int().min(1).max(31),
+    categoryId: z.string().uuid().optional(),
+    endDate: isoDate.optional(),
+    totalOccurrences: z.number().int().positive().optional(),
+  })
+  .refine(endConditionRefine, {
+    message: 'Informe apenas data final ou número de ocorrências, não ambos',
+  });
+
+export const updateRecurringTemplateSchema = z
+  .object({
+    description: z.string().min(1).optional(),
+    estimatedAmount: z.number().positive().optional(),
+    type: transactionType.optional(),
+    dayOfMonth: z.number().int().min(1).max(31).optional(),
+    categoryId: z.string().uuid().optional(),
+    isActive: z.boolean().optional(),
+    endDate: isoDate.optional().nullable(),
+    totalOccurrences: z.number().int().positive().optional().nullable(),
+  })
+  .refine(endConditionRefine, {
+    message: 'Informe apenas data final ou número de ocorrências, não ambos',
+  });
 
 export const realizeRecurringTemplateSchema = z.object({
   amount: z.number().positive('Valor deve ser positivo'),

@@ -38,18 +38,20 @@ model User {
 }
 
 model RecurringTemplate {
-  id              String          @id @default(uuid())
-  description     String
-  estimatedAmount Float
-  type            TransactionType
-  dayOfMonth      Int
-  isActive        Boolean         @default(true)
-  categoryId      String?
-  userId          String
-  category        Category?       @relation(fields: [categoryId], references: [id])
-  user            User            @relation(fields: [userId], references: [id])
-  createdAt       DateTime        @default(now())
-  instances       Transaction[]
+  id               String          @id @default(uuid())
+  description      String
+  estimatedAmount  Float
+  type             TransactionType
+  dayOfMonth       Int
+  isActive         Boolean         @default(true)
+  categoryId       String?
+  userId           String
+  endDate          DateTime?
+  totalOccurrences Int?
+  category         Category?       @relation(fields: [categoryId], references: [id])
+  user             User            @relation(fields: [userId], references: [id])
+  createdAt        DateTime        @default(now())
+  instances        Transaction[]
 
   @@index([userId])
 }

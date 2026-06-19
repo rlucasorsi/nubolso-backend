@@ -10,11 +10,19 @@ export class RecurringTemplatesService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(userId: string) {
-    return this.prisma.recurringTemplate.findMany({
+    const templates = await this.prisma.recurringTemplate.findMany({
       where: { userId },
-      include: { category: true },
+      include: {
+        category: true,
+        _count: { select: { instances: { where: { isSkipped: false } } } },
+      },
       orderBy: { dayOfMonth: 'asc' },
     });
+
+    return templates.map(({ _count, ...t }) => ({
+      ...t,
+      occurrenceCount: _count.instances,
+    }));
   }
 
   async create(userId: string, data: CreateRecurringTemplateDto) {
@@ -46,7 +54,7 @@ export class RecurringTemplatesService {
     const template = await this.findOne(userId, id);
     const date = new Date(data.date);
 
-    return this.prisma.transaction.upsert({
+    const transaction = await this.prisma.transaction.upsert({
       where: {
         templateId_date: {
           templateId: id,
@@ -71,6 +79,20 @@ export class RecurringTemplatesService {
         category: true,
       },
     });
+
+    if (template.totalOccurrences) {
+      const realizedCount = await this.prisma.transaction.count({
+        where: { templateId: id, isSkipped: false },
+      });
+      if (realizedCount >= template.totalOccurrences) {
+        await this.prisma.recurringTemplate.update({
+          where: { id },
+          data: { isActive: false },
+        });
+      }
+    }
+
+    return transaction;
   }
 
   // Marks (or creates) the instance for this templateId+date as "skipped":
