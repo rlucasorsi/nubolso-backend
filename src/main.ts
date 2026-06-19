@@ -18,16 +18,10 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const logger = new Logger('Bootstrap');
 
-  const extraOrigins = (process.env.FRONTEND_URL ?? '')
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
-
-  const allowedOrigins = [
-    'http://localhost:3001',
-    'http://localhost:3000',
-    ...extraOrigins,
-  ];
+  const isProd = process.env.NODE_ENV === 'production';
+  const allowedOrigins = isProd
+    ? ['https://nubolso.com']
+    : ['http://localhost:3001', 'http://localhost:3000', 'https://nubolso.com'];
 
   app.enableCors({
     origin: allowedOrigins,
