@@ -1,9 +1,12 @@
 import { z } from 'zod';
 
 const transactionType = z.enum(['INCOME', 'EXPENSE', 'SPENDING']);
-const isoDate = z.string().refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
+const isoDate = z
+  .string()
+  .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' })
+  .transform((s) => new Date(s));
 
-const endConditionRefine = (data: { endDate?: string; totalOccurrences?: number }) =>
+const endConditionRefine = (data: { endDate?: Date | string | null; totalOccurrences?: number | null }) =>
   !(data.endDate && data.totalOccurrences);
 
 export const createRecurringTemplateSchema = z
