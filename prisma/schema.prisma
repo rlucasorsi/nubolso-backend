@@ -23,18 +23,21 @@ model User {
   verificationAttempts       Int                  @default(0)
   passwordResetCode          String?
   passwordResetCodeExpiresAt DateTime?
-  currentBalance     Float                @default(0)
-  balanceStartDate   DateTime?
-  greenThreshold     Float                @default(0)
-  yellowThreshold    Float                @default(0)
-  createdAt          DateTime             @default(now())
-  transactions       Transaction[]
-  recurringTemplates RecurringTemplate[]
-  categories         Category[]
-  goals              Goal[]
-  creditCards        CreditCard[]
-  creditCardPurchases CreditCardPurchase[]
-  creditCardInvoices  CreditCardInvoice[]
+  currentBalance             Float                @default(0)
+  balanceStartDate           DateTime?
+  greenThreshold             Float                @default(0)
+  yellowThreshold            Float                @default(0)
+  ofxBankId                  String?
+  ofxAcctId                  String?
+  createdAt                  DateTime             @default(now())
+  transactions               Transaction[]
+  recurringTemplates         RecurringTemplate[]
+  categories                 Category[]
+  goals                      Goal[]
+  creditCards                CreditCard[]
+  creditCardPurchases        CreditCardPurchase[]
+  creditCardInvoices         CreditCardInvoice[]
+  importBatches              ImportBatch[]
 }
 
 model RecurringTemplate {
@@ -85,13 +88,21 @@ model Transaction {
   user        User               @relation(fields: [userId], references: [id])
   createdAt   DateTime           @default(now())
 
+  // FITID do OFX. Único por usuário (que hoje representa a "conta" no app);
+  // nulo para lançamentos manuais, o que permite múltiplos nulos sem colidir.
+  fitId         String?
+  importBatchId String?
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
+
   creditCardInvoice CreditCardInvoice?
 
   @@unique([templateId, date])
+  @@unique([userId, fitId])
   @@index([userId])
   @@index([templateId])
   @@index([date])
   @@index([categoryId])
+  @@index([importBatchId])
 }
 
 enum TransactionType {
@@ -215,4 +226,70 @@ model CreditCardInvoice {
   @@index([userId])
   @@index([cardId])
   @@index([paymentDate])
+}
+
+enum ImportBatchStatus {
+  PENDING_REVIEW
+  CONFIRMED
+  CANCELED
+  ROLLED_BACK
+}
+
+enum ImportItemStatus {
+  NEW
+  DUPLICATE_EXACT
+  POSSIBLE_DUPLICATE
+}
+
+enum ImportItemDecision {
+  IMPORT
+  SKIP
+}
+
+// Um lote de importação de OFX. Fica em PENDING_REVIEW até o usuário confirmar
+// na tela de revisão; só aí os itens decididos como IMPORT viram Transaction.
+model ImportBatch {
+  id       String            @id @default(uuid())
+  userId   String
+  user     User              @relation(fields: [userId], references: [id])
+  fileName String
+  bankId   String?
+  acctId   String?
+  status   ImportBatchStatus @default(PENDING_REVIEW)
+
+  totalCount             Int @default(0)
+  newCount               Int @default(0)
+  duplicateExactCount    Int @default(0)
+  possibleDuplicateCount Int @default(0)
+  importedCount          Int @default(0)
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  items        ImportBatchItem[]
+  transactions Transaction[]
+
+  @@index([userId])
+}
+
+// Transação extraída do OFX antes de ser persistida como Transaction de fato.
+model ImportBatchItem {
+  id      String      @id @default(uuid())
+  batchId String
+  batch   ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  fitId       String?
+  description String
+  amount      Float
+  type        TransactionType
+  date        DateTime
+
+  status               ImportItemStatus
+  matchedTransactionId String?
+  similarityScore      Float?
+  decision             ImportItemDecision?
+
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
 }
