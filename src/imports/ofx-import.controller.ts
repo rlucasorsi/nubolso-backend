@@ -10,6 +10,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { OfxImportService } from './ofx-import.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -25,10 +26,13 @@ export class OfxImportController {
   constructor(private readonly ofxImportService: OfxImportService) {}
 
   @Post()
+  // Upload envolve parsing de regex + queries no DB por transação: limite mais
+  // restritivo que o throttler global (100/min) para conter abuso direcionado.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 5 * 1024 * 1024 },
+      limits: { fileSize: 5 * 1024 * 1024, files: 1 },
     }),
   )
   upload(

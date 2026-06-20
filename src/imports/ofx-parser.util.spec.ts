@@ -106,4 +106,36 @@ describe('parseOfx', () => {
   it('lança erro quando o arquivo não contém a tag <OFX>', () => {
     expect(() => parseOfx(Buffer.from('isto não é um OFX', 'utf8'))).toThrow();
   });
+
+  it('trunca descrições muito longas para conter abuso de memória', () => {
+    const longMemo = 'A'.repeat(1000);
+    const ofx = buildOfx(`<STMTTRN>
+<DTPOSTED>20240101
+<TRNAMT>-10.00
+<FITID>1
+<MEMO>${longMemo}
+</STMTTRN>`);
+
+    const result = parseOfx(Buffer.from(ofx, 'latin1'));
+
+    expect(result.transactions[0].description.length).toBe(280);
+  });
+
+  it('interrompe a leitura após o limite de segurança de transações', () => {
+    const block = (n: number) => `<STMTTRN>
+<DTPOSTED>20240101
+<TRNAMT>-1.00
+<FITID>${n}
+<MEMO>Transação ${n}
+</STMTTRN>`;
+    const body = Array.from({ length: 20_001 }, (_, i) => block(i)).join('\n');
+    const ofx = buildOfx(body);
+
+    const result = parseOfx(Buffer.from(ofx, 'latin1'));
+
+    expect(result.transactions).toHaveLength(20_000);
+    expect(result.errors.some((e) => e.includes('limite de segurança'))).toBe(
+      true,
+    );
+  });
 });

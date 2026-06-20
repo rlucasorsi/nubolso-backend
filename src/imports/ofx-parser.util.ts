@@ -16,6 +16,12 @@ export interface ParsedOfx {
 const STMTTRN_BLOCK = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi;
 const ACCTFROM_BLOCK = /<(BANKACCTFROM|CCACCTFROM)>([\s\S]*?)<\/\1>/i;
 
+// Limite de segurança independente do limite de negócio (ver
+// MAX_TRANSACTIONS_PER_IMPORT no service): protege o event loop de um
+// arquivo adversarial com um número absurdo de blocos <STMTTRN>.
+const HARD_PARSE_LIMIT = 20_000;
+const MAX_DESCRIPTION_LENGTH = 280;
+
 function decodeOfxBuffer(buffer: Buffer): string {
   const headerSample = buffer.subarray(0, 512).toString('ascii');
   const declared = (
@@ -92,6 +98,13 @@ export function parseOfx(buffer: Buffer): ParsedOfx {
   STMTTRN_BLOCK.lastIndex = 0;
   while ((match = STMTTRN_BLOCK.exec(text)) !== null) {
     index++;
+    if (index > HARD_PARSE_LIMIT) {
+      errors.push(
+        `Leitura interrompida em ${HARD_PARSE_LIMIT} transações: arquivo excede o limite de segurança do parser`,
+      );
+      break;
+    }
+
     const block = match[1];
     try {
       const fitId = extractTag(block, 'FITID');
@@ -107,10 +120,11 @@ export function parseOfx(buffer: Buffer): ParsedOfx {
       const amount = parseOfxAmount(trnAmt);
       if (amount === null) throw new Error(`TRNAMT inválido: ${trnAmt}`);
 
-      const description =
+      const description = (
         extractTag(block, 'NAME') ??
         extractTag(block, 'MEMO') ??
-        'Transação importada';
+        'Transação importada'
+      ).slice(0, MAX_DESCRIPTION_LENGTH);
 
       transactions.push({
         fitId,

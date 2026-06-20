@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseOfx } from './ofx-parser.util';
 import { findFuzzyMatch } from './fuzzy-match.util';
@@ -11,6 +10,29 @@ import { ConfirmImportDto } from './dto/confirm-import.dto';
 
 const MAX_OFX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_EXTENSIONS = /\.(ofx|qfx)$/i;
+
+// Limite de negócio (gera erro amigável); o parser tem seu próprio limite
+// mais alto (HARD_PARSE_LIMIT) só para conter CPU em arquivo adversarial.
+const MAX_TRANSACTIONS_PER_IMPORT = 5_000;
+
+// Tamanho dos lotes para queries com IN(...) e createMany — evita uma única
+// query gigante (limite de parâmetros do driver, tempo de lock no Postgres).
+const DB_CHUNK_SIZE = 500;
+
+// Janela de tolerância do matching difuso (ver fuzzy-match.util.ts).
+const FUZZY_WINDOW_DAYS = 2;
+
+// $transaction maior que o default (5s) para lotes grandes não estourarem
+// timeout no meio da confirmação/rollback.
+const BATCH_TRANSACTION_OPTIONS = { timeout: 30_000, maxWait: 10_000 };
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
 
 @Injectable()
 export class OfxImportService {
@@ -32,24 +54,27 @@ export class OfxImportService {
       );
     }
 
+    if (parsed.transactions.length > MAX_TRANSACTIONS_PER_IMPORT) {
+      throw new BadRequestException(
+        `Arquivo contém ${parsed.transactions.length} transações, acima do limite de ${MAX_TRANSACTIONS_PER_IMPORT} por import. Divida o período do extrato em arquivos menores.`,
+      );
+    }
+
     await this.validateAccountBinding(userId, parsed.bankId, parsed.acctId);
 
     const fitIds = parsed.transactions
       .map((t) => t.fitId)
       .filter((id): id is string => !!id);
     const existingFitIds = new Set(
-      fitIds.length
-        ? (
-            await this.prisma.transaction.findMany({
-              where: { userId, fitId: { in: fitIds } },
-              select: { fitId: true },
-            })
-          ).map((t) => t.fitId)
-        : [],
+      await this.findExistingFitIds(userId, fitIds),
     );
 
+    // Janela de busca limitada ao período do extrato (±FUZZY_WINDOW_DAYS) em
+    // vez de toda a história do usuário: mantém o matching difuso em O(n)
+    // sobre um conjunto pequeno, mesmo para contas com anos de lançamentos.
+    const { minDate, maxDate } = this.dateRangeWithMargin(parsed.transactions);
     const manualTransactions = await this.prisma.transaction.findMany({
-      where: { userId, fitId: null },
+      where: { userId, fitId: null, date: { gte: minDate, lte: maxDate } },
       select: { id: true, amount: true, date: true, description: true },
     });
 
@@ -114,12 +139,17 @@ export class OfxImportService {
         newCount,
         duplicateExactCount,
         possibleDuplicateCount,
-        items: { create: itemsData },
       },
-      include: { items: true },
     });
 
-    return { ...batch, parseErrors: parsed.errors };
+    for (const itemsChunk of chunk(itemsData, DB_CHUNK_SIZE)) {
+      await this.prisma.importBatchItem.createMany({
+        data: itemsChunk.map((item) => ({ ...item, batchId: batch.id })),
+      });
+    }
+
+    const batchWithItems = await this.findBatchOrThrow(userId, batch.id);
+    return { ...batchWithItems, parseErrors: parsed.errors };
   }
 
   async findAllBatches(userId: string) {
@@ -169,38 +199,30 @@ export class OfxImportService {
 
     const decisionMap = new Map(decisions.map((d) => [d.itemId, d.action]));
 
+    const toImport = batch.items.filter((item) => {
+      if (item.status === 'DUPLICATE_EXACT') return false;
+      const action = decisionMap.get(item.id) ?? item.decision ?? 'SKIP';
+      return action === 'IMPORT';
+    });
+
     return this.prisma.$transaction(async (tx) => {
       let importedCount = 0;
 
-      for (const item of batch.items) {
-        if (item.status === 'DUPLICATE_EXACT') continue;
-
-        const action = decisionMap.get(item.id) ?? item.decision ?? 'SKIP';
-        if (action !== 'IMPORT') continue;
-
-        try {
-          await tx.transaction.create({
-            data: {
-              description: item.description,
-              amount: item.amount,
-              type: item.type,
-              date: item.date,
-              isPaid: true,
-              userId,
-              fitId: item.fitId,
-              importBatchId: batch.id,
-            },
-          });
-          importedCount++;
-        } catch (err) {
-          if (
-            err instanceof Prisma.PrismaClientKnownRequestError &&
-            err.code === 'P2002'
-          ) {
-            continue;
-          }
-          throw err;
-        }
+      for (const itemsChunk of chunk(toImport, DB_CHUNK_SIZE)) {
+        const result = await tx.transaction.createMany({
+          data: itemsChunk.map((item) => ({
+            description: item.description,
+            amount: item.amount,
+            type: item.type,
+            date: item.date,
+            isPaid: true,
+            userId,
+            fitId: item.fitId,
+            importBatchId: batch.id,
+          })),
+          skipDuplicates: true,
+        });
+        importedCount += result.count;
       }
 
       return tx.importBatch.update({
@@ -208,7 +230,7 @@ export class OfxImportService {
         data: { status: 'CONFIRMED', importedCount, confirmedAt: new Date() },
         include: { items: true },
       });
-    });
+    }, BATCH_TRANSACTION_OPTIONS);
   }
 
   async rollback(userId: string, batchId: string) {
@@ -229,7 +251,7 @@ export class OfxImportService {
         where: { id: batchId },
         data: { status: 'ROLLED_BACK', importedCount: 0 },
       });
-    });
+    }, BATCH_TRANSACTION_OPTIONS);
   }
 
   async cancel(userId: string, batchId: string) {
@@ -245,6 +267,36 @@ export class OfxImportService {
       where: { id: batchId },
       data: { status: 'CANCELED' },
     });
+  }
+
+  private async findExistingFitIds(
+    userId: string,
+    fitIds: string[],
+  ): Promise<string[]> {
+    if (fitIds.length === 0) return [];
+
+    const results = await Promise.all(
+      chunk(fitIds, DB_CHUNK_SIZE).map((idsChunk) =>
+        this.prisma.transaction.findMany({
+          where: { userId, fitId: { in: idsChunk } },
+          select: { fitId: true },
+        }),
+      ),
+    );
+
+    return results.flat().map((t) => t.fitId as string);
+  }
+
+  private dateRangeWithMargin(transactions: { date: Date }[]): {
+    minDate: Date;
+    maxDate: Date;
+  } {
+    const marginMs = FUZZY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const timestamps = transactions.map((t) => t.date.getTime());
+    return {
+      minDate: new Date(Math.min(...timestamps) - marginMs),
+      maxDate: new Date(Math.max(...timestamps) + marginMs),
+    };
   }
 
   private async findBatchOrThrow(userId: string, batchId: string) {
