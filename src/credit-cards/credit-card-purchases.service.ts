@@ -109,7 +109,7 @@ export class CreditCardPurchasesService {
 
     const invoiceIds = [...new Set(purchase.installments.map((i) => i.invoiceId))];
 
-    await this.prisma.creditCardPurchase.delete({ where: { id } });
+    await this.prisma.creditCardPurchase.delete({ where: { id, userId } });
 
     // Remove invoices que ficaram sem parcelas
     await this.prisma.creditCardInvoice.deleteMany({

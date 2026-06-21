@@ -226,7 +226,7 @@ export class OfxImportService {
       }
 
       return tx.importBatch.update({
-        where: { id: batch.id },
+        where: { id: batch.id, userId },
         data: { status: 'CONFIRMED', importedCount, confirmedAt: new Date() },
         include: { items: true },
       });
@@ -248,7 +248,7 @@ export class OfxImportService {
       });
 
       return tx.importBatch.update({
-        where: { id: batchId },
+        where: { id: batchId, userId },
         data: { status: 'ROLLED_BACK', importedCount: 0 },
       });
     }, BATCH_TRANSACTION_OPTIONS);
@@ -264,7 +264,7 @@ export class OfxImportService {
     }
 
     return this.prisma.importBatch.update({
-      where: { id: batchId },
+      where: { id: batchId, userId },
       data: { status: 'CANCELED' },
     });
   }

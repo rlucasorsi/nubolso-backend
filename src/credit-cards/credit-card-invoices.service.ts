@@ -39,7 +39,7 @@ export class CreditCardInvoicesService {
     if (!card) throw new NotFoundException('Credit card not found');
 
     const invoices = await this.prisma.creditCardInvoice.findMany({
-      where: { cardId },
+      where: { cardId, userId },
       include: {
         installments: { include: { purchase: true } },
         transaction: true,
@@ -101,7 +101,7 @@ export class CreditCardInvoicesService {
     }
 
     return this.prisma.creditCardInvoice.update({
-      where: { id },
+      where: { id, userId },
       data: {
         paymentDate: new Date(dto.paymentDate),
         paymentDateOverridden: true,
@@ -122,7 +122,7 @@ export class CreditCardInvoicesService {
     return this.prisma.$transaction(async (tx) => {
       const transaction = invoice.transactionId
         ? await tx.transaction.update({
-            where: { id: invoice.transactionId },
+            where: { id: invoice.transactionId, userId },
             data: { amount: dto.amount, date: paymentDate, isPaid: true },
           })
         : await tx.transaction.create({
@@ -137,7 +137,7 @@ export class CreditCardInvoicesService {
           });
 
       const updated = await tx.creditCardInvoice.update({
-        where: { id },
+        where: { id, userId },
         data: {
           isPaid: true,
           paidAmount: dto.amount,
@@ -234,21 +234,21 @@ export class CreditCardInvoicesService {
 
     return this.prisma.$transaction(async (tx) => {
       await tx.creditCardInvoice.update({
-        where: { id },
+        where: { id, userId },
         data: { isPaid: false, paidAmount: null, transactionId: null },
       });
 
       if (invoice.transactionId) {
-        await tx.transaction.delete({ where: { id: invoice.transactionId } });
+        await tx.transaction.delete({ where: { id: invoice.transactionId, userId } });
       }
 
       for (const purchase of invoice.remainderPurchases) {
         await tx.creditCardInstallment.deleteMany({ where: { purchaseId: purchase.id } });
-        await tx.creditCardPurchase.delete({ where: { id: purchase.id } });
+        await tx.creditCardPurchase.delete({ where: { id: purchase.id, userId } });
       }
 
       const updated = await tx.creditCardInvoice.findUniqueOrThrow({
-        where: { id },
+        where: { id, userId },
         include: { installments: true, transaction: true, card: true },
       });
 
