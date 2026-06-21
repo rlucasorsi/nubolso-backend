@@ -57,7 +57,7 @@ export class TransactionsService {
     }
 
     return this.prisma.transaction.update({
-      where: { id },
+      where: { id, userId },
       data: {
         ...data,
         date: data.date ? new Date(data.date) : undefined,
@@ -85,7 +85,7 @@ export class TransactionsService {
     const transaction = await this.findOne(userId, id);
 
     return this.prisma.transaction.update({
-      where: { id },
+      where: { id, userId },
       data: { isPaid: !transaction.isPaid },
       include: {
         category: true,
@@ -97,7 +97,7 @@ export class TransactionsService {
     await this.findOne(userId, id);
 
     return this.prisma.transaction.delete({
-      where: { id },
+      where: { id, userId },
     });
   }
 

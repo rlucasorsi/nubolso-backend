@@ -36,7 +36,7 @@ export class RecurringTemplatesService {
     await this.findOne(userId, id);
 
     return this.prisma.recurringTemplate.update({
-      where: { id },
+      where: { id, userId },
       data,
       include: { category: true },
     });
@@ -46,7 +46,7 @@ export class RecurringTemplatesService {
     await this.findOne(userId, id);
 
     return this.prisma.recurringTemplate.delete({
-      where: { id },
+      where: { id, userId },
     });
   }
 
@@ -86,7 +86,7 @@ export class RecurringTemplatesService {
       });
       if (realizedCount >= template.totalOccurrences) {
         await this.prisma.recurringTemplate.update({
-          where: { id },
+          where: { id, userId },
           data: { isActive: false },
         });
       }

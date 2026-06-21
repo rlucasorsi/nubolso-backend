@@ -54,7 +54,7 @@ export class GoalsService {
       }
 
       return tx.goal.update({
-        where: { id },
+        where: { id, userId },
         data: {
           ...rest,
           deadline: deadline ? new Date(deadline) : undefined,
@@ -67,7 +67,7 @@ export class GoalsService {
   async remove(userId: string, id: string) {
     await this.findOne(userId, id);
 
-    return this.prisma.goal.delete({ where: { id } });
+    return this.prisma.goal.delete({ where: { id, userId } });
   }
 
   async addContribution(
@@ -88,7 +88,7 @@ export class GoalsService {
       });
 
       return tx.goal.update({
-        where: { id },
+        where: { id, userId },
         data: { savedAmount: goal.savedAmount + data.amount },
         include: { contributions: { orderBy: { date: 'desc' } } },
       });

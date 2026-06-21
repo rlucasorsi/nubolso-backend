@@ -38,7 +38,7 @@ export class CreditCardsService {
     const card = await this.findOne(userId, id);
 
     const updated = await this.prisma.creditCard.update({
-      where: { id },
+      where: { id, userId },
       data,
     });
 
@@ -55,7 +55,7 @@ export class CreditCardsService {
     await this.findOne(userId, id);
 
     return this.prisma.creditCard.update({
-      where: { id },
+      where: { id, userId },
       data: { isActive: false },
     });
   }
