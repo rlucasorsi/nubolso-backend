@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Body, UseGuards, NotFoundException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -36,5 +36,15 @@ export class UsersController {
 
     const { passwordHash, ...rest } = updated;
     return rest;
+  }
+
+  @Get('me/export')
+  async exportData(@CurrentUser() user: JwtUser) {
+    return this.usersService.exportData(user.sub);
+  }
+
+  @Delete('me')
+  async deleteAccount(@CurrentUser() user: JwtUser) {
+    await this.usersService.deleteAccount(user.sub);
   }
 }
