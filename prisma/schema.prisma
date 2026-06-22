@@ -37,6 +37,7 @@ model User {
   creditCards                CreditCard[]
   creditCardPurchases        CreditCardPurchase[]
   creditCardInvoices         CreditCardInvoice[]
+  installmentAdvances        InstallmentAdvance[]
   importBatches              ImportBatch[]
 }
 
@@ -163,6 +164,7 @@ model CreditCardPurchase {
   totalAmount       Float
   installmentsCount Int
   purchaseDate      DateTime
+  isCredit          Boolean  @default(false)
   cardId            String
   card              CreditCard @relation(fields: [cardId], references: [id])
   userId            String
@@ -173,6 +175,7 @@ model CreditCardPurchase {
 
   createdAt    DateTime @default(now())
   installments CreditCardInstallment[]
+  advances     InstallmentAdvance[]
 
   @@index([userId])
   @@index([cardId])
@@ -184,6 +187,10 @@ model CreditCardInstallment {
   totalCount Int
   amount     Float
 
+  isAnticipated Boolean @default(false)
+  advanceId     String?
+  advance       InstallmentAdvance? @relation(fields: [advanceId], references: [id])
+
   purchaseId String
   purchase   CreditCardPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
 
@@ -194,6 +201,7 @@ model CreditCardInstallment {
 
   @@index([purchaseId])
   @@index([invoiceId])
+  @@index([advanceId])
 }
 
 model CreditCardInvoice {
@@ -219,6 +227,7 @@ model CreditCardInvoice {
 
   installments       CreditCardInstallment[]
   remainderPurchases CreditCardPurchase[] @relation("PurchaseOrigin")
+  advances           InstallmentAdvance[]
 
   createdAt DateTime @default(now())
 
@@ -226,6 +235,27 @@ model CreditCardInvoice {
   @@index([userId])
   @@index([cardId])
   @@index([paymentDate])
+}
+
+model InstallmentAdvance {
+  id                String   @id @default(uuid())
+  purchaseId        String
+  purchase          CreditCardPurchase @relation(fields: [purchaseId], references: [id])
+  invoiceId         String
+  invoice           CreditCardInvoice  @relation(fields: [invoiceId], references: [id])
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  installmentsCount Int
+  originalAmount    Float
+  paidAmount        Float
+  discount          Float
+  anticipatedAt     DateTime @default(now())
+
+  anticipatedInstallments CreditCardInstallment[]
+
+  @@index([purchaseId])
+  @@index([invoiceId])
+  @@index([userId])
 }
 
 enum ImportBatchStatus {

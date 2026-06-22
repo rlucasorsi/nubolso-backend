@@ -39,8 +39,26 @@ export const updateInvoiceSchema = z.object({
   paymentDate: isoDate,
 });
 
+export const anticipateInstallmentsSchema = z.object({
+  purchaseId: z.string().uuid('purchaseId inválido'),
+  installmentsCount: z.number().int().min(1),
+  paidAmount: z.number().positive('Valor deve ser positivo'),
+});
+
+export const advanceInstallmentsSchema = z
+  .object({
+    targetYear: z.number().int().min(2020).max(2100).optional(),
+    targetMonth: z.number().int().min(1).max(12).optional(),
+  })
+  .refine(
+    (d) => (d.targetYear === undefined) === (d.targetMonth === undefined),
+    { message: 'Forneça targetYear e targetMonth juntos, ou nenhum dos dois' },
+  );
+
 export type CreateCreditCardDto = z.infer<typeof createCreditCardSchema>;
 export type UpdateCreditCardDto = z.infer<typeof updateCreditCardSchema>;
 export type CreatePurchaseDto = z.infer<typeof createPurchaseSchema>;
 export type PayInvoiceDto = z.infer<typeof payInvoiceSchema>;
 export type UpdateInvoiceDto = z.infer<typeof updateInvoiceSchema>;
+export type AnticipateInstallmentsDto = z.infer<typeof anticipateInstallmentsSchema>;
+export type AdvanceInstallmentsDto = z.infer<typeof advanceInstallmentsSchema>;
