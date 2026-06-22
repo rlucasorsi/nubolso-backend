@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Body,
   Param,
   Query,
@@ -13,9 +14,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtUser } from '../auth/jwt-payload.type';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { updateInvoiceSchema, payInvoiceSchema } from './schemas';
+import { updateInvoiceSchema, payInvoiceSchema, anticipateInstallmentsSchema } from './schemas';
 import type { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import type { PayInvoiceDto } from './dto/pay-invoice.dto';
+import type { AnticipateInstallmentsDto } from './dto/anticipate-installments.dto';
 
 @Controller('credit-cards')
 @UseGuards(JwtAuthGuard)
@@ -65,5 +67,23 @@ export class CreditCardInvoicesController {
     @Param('cardId') cardId: string,
   ) {
     return this.invoicesService.findAllForCard(user.sub, cardId);
+  }
+
+  @Delete('advances/:advanceId')
+  revertAdvance(
+    @CurrentUser() user: JwtUser,
+    @Param('advanceId') advanceId: string,
+  ) {
+    return this.invoicesService.revertAdvance(user.sub, advanceId);
+  }
+
+  @Post(':cardId/invoices/current/anticipate')
+  anticipate(
+    @CurrentUser() user: JwtUser,
+    @Param('cardId') cardId: string,
+    @Body(new ZodValidationPipe(anticipateInstallmentsSchema))
+    data: AnticipateInstallmentsDto,
+  ) {
+    return this.invoicesService.anticipate(user.sub, cardId, data);
   }
 }
