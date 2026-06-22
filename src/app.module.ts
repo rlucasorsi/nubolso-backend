@@ -15,6 +15,7 @@ import { RecurringTemplatesModule } from './recurring-templates/recurring-templa
 import { GoalsModule } from './goals/goals.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { ImportsModule } from './imports/imports.module';
+import { SupportModule } from './support/support.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { ImportsModule } from './imports/imports.module';
     GoalsModule,
     CreditCardsModule,
     ImportsModule,
+    SupportModule,
   ],
   controllers: [AppController],
   providers: [
