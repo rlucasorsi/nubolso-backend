@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
@@ -9,25 +13,33 @@ export class TransactionsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(userId: string, query: QueryTransactionDto) {
-    const { startDate, endDate, type, categoryId, isPaid } = query;
+    const { startDate, endDate, type, categoryId, isPaid, page, limit } = query;
 
-    return this.prisma.transaction.findMany({
-      where: {
-        userId,
-        type,
-        categoryId,
-        isPaid,
-        date: {
-          gte: startDate ? new Date(startDate) : undefined,
-          lte: endDate ? new Date(endDate) : undefined,
-        },
+    const where = {
+      userId,
+      type,
+      categoryId,
+      isPaid,
+      date: {
+        gte: startDate ? new Date(startDate) : undefined,
+        lte: endDate ? new Date(endDate) : undefined,
       },
-      include: {
-        category: true,
-      },
-      orderBy: { date: 'desc' },
-      take: 2000,
-    });
+    };
+
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.transaction.findMany({
+        where,
+        include: { category: true },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        skip,
+        take: limit,
+      }),
+      this.prisma.transaction.count({ where }),
+    ]);
+
+    return { data, total, page, limit, hasMore: skip + data.length < total };
   }
 
   async create(userId: string, data: CreateTransactionDto) {

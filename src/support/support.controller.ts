@@ -1,6 +1,7 @@
 import { Controller, Post, Body, HttpCode } from '@nestjs/common';
 import { z } from 'zod';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { MailerService } from '../mailer/mailer.service';
 
 const supportSchema = z.object({
   name: z.string().min(1),
@@ -13,13 +14,12 @@ type SupportDto = z.infer<typeof supportSchema>;
 
 @Controller('support')
 export class SupportController {
+  constructor(private readonly mailerService: MailerService) {}
+
   @Post()
   @HttpCode(201)
-  submit(@Body(new ZodValidationPipe(supportSchema)) dto: SupportDto) {
-    console.log('[Support Request]', {
-      timestamp: new Date().toISOString(),
-      ...dto,
-    });
+  async submit(@Body(new ZodValidationPipe(supportSchema)) dto: SupportDto) {
+    await this.mailerService.sendSupportRequest(dto);
     return { success: true };
   }
 }

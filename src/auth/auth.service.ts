@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -267,6 +268,34 @@ export class AuthService {
     }
 
     return { email, name, sub };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await this.usersService.findById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('Usuário não encontrado.');
+    }
+
+    if (!user.passwordHash) {
+      throw new BadRequestException(
+        'Esta conta usa login com Google. Troca de senha não disponível.',
+      );
+    }
+
+    const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isValid) {
+      throw new UnauthorizedException('Senha atual incorreta.');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.usersService.update(userId, { passwordHash });
+
+    return { message: 'Senha alterada com sucesso.' };
   }
 
   private async buildAuthResponse(user: User) {

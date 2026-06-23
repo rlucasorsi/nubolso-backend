@@ -35,10 +35,17 @@ export class GoalsService {
   async update(userId: string, id: string, data: UpdateGoalDto) {
     await this.findOne(userId, id);
 
-    const { contributions, deadline, ...rest } = data;
+    const {
+      contributions,
+      deadline,
+      savedAmount: savedAmountInput,
+      ...rest
+    } = data;
 
     return this.prisma.$transaction(async (tx) => {
-      if (contributions) {
+      let savedAmount = savedAmountInput;
+
+      if (contributions !== undefined) {
         await tx.goalContribution.deleteMany({ where: { goalId: id } });
 
         if (contributions.length > 0) {
@@ -51,12 +58,15 @@ export class GoalsService {
             })),
           });
         }
+
+        savedAmount = contributions.reduce((sum, c) => sum + c.amount, 0);
       }
 
       return tx.goal.update({
         where: { id, userId },
         data: {
           ...rest,
+          savedAmount,
           deadline: deadline ? new Date(deadline) : undefined,
         },
         include: { contributions: { orderBy: { date: 'desc' } } },
@@ -120,6 +130,34 @@ export class GoalsService {
       total,
       hasMore: page * limit < total,
     };
+  }
+
+  async removeContribution(
+    userId: string,
+    goalId: string,
+    contributionId: string,
+  ) {
+    const goal = await this.findOne(userId, goalId);
+
+    const contribution = await this.prisma.goalContribution.findFirst({
+      where: { id: contributionId, goalId },
+    });
+
+    if (!contribution) {
+      throw new NotFoundException('Contribution not found');
+    }
+
+    await this.prisma.goalContribution.delete({
+      where: { id: contributionId },
+    });
+
+    return this.prisma.goal.update({
+      where: { id: goalId, userId },
+      data: {
+        savedAmount: Math.max(0, goal.savedAmount - contribution.amount),
+      },
+      include: { contributions: { orderBy: { date: 'desc' } } },
+    });
   }
 
   private async findOne(userId: string, id: string) {

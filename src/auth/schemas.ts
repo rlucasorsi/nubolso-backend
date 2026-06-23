@@ -21,29 +21,49 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email('E-mail inválido').transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email('E-mail inválido')
+    .transform((v) => v.toLowerCase().trim()),
   password: z.string().min(1, 'Senha é obrigatória'),
 });
 
 export const verifyEmailSchema = z.object({
-  email: z.string().email('E-mail inválido').transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email('E-mail inválido')
+    .transform((v) => v.toLowerCase().trim()),
   code: z.string().length(6, 'Código deve ter 6 caracteres'),
 });
 
 export const resendCodeSchema = z.object({
-  email: z.string().email('E-mail inválido').transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email('E-mail inválido')
+    .transform((v) => v.toLowerCase().trim()),
 });
 
 export const forgotPasswordSchema = z.object({
-  email: z.string().email('E-mail inválido').transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email('E-mail inválido')
+    .transform((v) => v.toLowerCase().trim()),
 });
 
 export const resetPasswordSchema = z.object({
-  email: z.string().email('E-mail inválido').transform((v) => v.toLowerCase().trim()),
+  email: z
+    .string()
+    .email('E-mail inválido')
+    .transform((v) => v.toLowerCase().trim()),
   code: z.string().length(6, 'Código deve ter 6 caracteres'),
   newPassword: passwordSchema,
 });
 
 export const googleAuthSchema = z.object({
   idToken: z.string().min(1, 'Token é obrigatório'),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Senha atual é obrigatória'),
+  newPassword: passwordSchema,
 });

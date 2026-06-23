@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { GoalsService } from './goals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -51,7 +61,8 @@ export class GoalsController {
   addContribution(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(createContributionSchema)) data: CreateContributionDto,
+    @Body(new ZodValidationPipe(createContributionSchema))
+    data: CreateContributionDto,
   ) {
     return this.goalsService.addContribution(user.sub, id, data);
   }
@@ -60,7 +71,8 @@ export class GoalsController {
   listContributions(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @Query(new ZodValidationPipe(listContributionsQuerySchema)) query: ListContributionsQueryDto,
+    @Query(new ZodValidationPipe(listContributionsQuerySchema))
+    query: ListContributionsQueryDto,
   ) {
     return this.goalsService.listContributions(
       user.sub,
@@ -68,5 +80,14 @@ export class GoalsController {
       query.page ?? 1,
       query.limit ?? 5,
     );
+  }
+
+  @Delete(':id/contributions/:contributionId')
+  removeContribution(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Param('contributionId') contributionId: string,
+  ) {
+    return this.goalsService.removeContribution(user.sub, id, contributionId);
   }
 }

@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 const transactionType = z.enum(['INCOME', 'EXPENSE', 'SPENDING']);
-const isoDate = z.string().refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
+const isoDate = z
+  .string()
+  .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
 
 export const createTransactionSchema = z.object({
   description: z.string().optional(),
@@ -33,6 +35,8 @@ export const queryTransactionSchema = z.object({
       return val;
     }, z.boolean())
     .optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 
 export type CreateTransactionDto = z.infer<typeof createTransactionSchema>;

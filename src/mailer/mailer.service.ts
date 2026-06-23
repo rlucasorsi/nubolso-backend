@@ -18,7 +18,11 @@ export class MailerService {
     this.logoUrl = appUrl ? `${appUrl}/public/logo.svg` : undefined;
   }
 
-  async sendVerificationCode(to: string, name: string, code: string): Promise<void> {
+  async sendVerificationCode(
+    to: string,
+    name: string,
+    code: string,
+  ): Promise<void> {
     const safeName = this.escapeHtml(name);
     await this.send(
       to,
@@ -33,7 +37,39 @@ export class MailerService {
     );
   }
 
-  async sendPasswordResetCode(to: string, name: string, code: string): Promise<void> {
+  async sendSupportRequest(data: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+  }): Promise<void> {
+    const to =
+      process.env.SUPPORT_EMAIL || this.from.replace(/^.*<(.+)>$/, '$1');
+    const safeName = this.escapeHtml(data.name);
+    const safeEmail = this.escapeHtml(data.email);
+    const safeSubject = this.escapeHtml(data.subject);
+    const safeMessage = this.escapeHtml(data.message).replace(/\n/g, '<br>');
+
+    const html = `
+      <div style="font-family:sans-serif;max-width:600px;margin:0 auto">
+        <h2 style="color:#1a1a1a">Nova mensagem de suporte</h2>
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:8px 0;font-weight:bold;width:100px">Nome:</td><td>${safeName}</td></tr>
+          <tr><td style="padding:8px 0;font-weight:bold">E-mail:</td><td>${safeEmail}</td></tr>
+          <tr><td style="padding:8px 0;font-weight:bold">Assunto:</td><td>${safeSubject}</td></tr>
+        </table>
+        <hr style="margin:16px 0">
+        <p style="white-space:pre-wrap">${safeMessage}</p>
+      </div>`;
+
+    await this.send(to, `[Suporte] ${data.subject}`, html);
+  }
+
+  async sendPasswordResetCode(
+    to: string,
+    name: string,
+    code: string,
+  ): Promise<void> {
     const safeName = this.escapeHtml(name);
     await this.send(
       to,
@@ -43,7 +79,8 @@ export class MailerService {
         code,
         title: 'Redefinição de senha',
         subtitle: 'Use o código abaixo para criar uma nova senha.',
-        footerNote: 'Se você não solicitou essa redefinição, ignore este e-mail. Sua senha permanece a mesma.',
+        footerNote:
+          'Se você não solicitou essa redefinição, ignore este e-mail. Sua senha permanece a mesma.',
         logoUrl: this.logoUrl,
       }),
     );

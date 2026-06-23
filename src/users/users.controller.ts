@@ -1,4 +1,12 @@
-import { Controller, Get, Patch, Delete, Body, UseGuards, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Delete,
+  Body,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -20,8 +28,7 @@ export class UsersController {
       throw new NotFoundException('User not found');
     }
 
-    const { passwordHash, ...rest } = found;
-    return rest;
+    return this.toPublicUser(found);
   }
 
   @Patch('me')
@@ -31,16 +38,37 @@ export class UsersController {
   ) {
     const updated = await this.usersService.update(user.sub, {
       ...data,
-      balanceStartDate: data.balanceStartDate ? new Date(data.balanceStartDate) : undefined,
+      balanceStartDate: data.balanceStartDate
+        ? new Date(data.balanceStartDate)
+        : undefined,
     });
 
-    const { passwordHash, ...rest } = updated;
-    return rest;
+    return this.toPublicUser(updated);
   }
 
   @Get('me/export')
   async exportData(@CurrentUser() user: JwtUser) {
     return this.usersService.exportData(user.sub);
+  }
+
+  private toPublicUser(
+    user: Awaited<ReturnType<typeof this.usersService.findById>>,
+  ) {
+    if (!user) return null;
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      googleId: user.googleId,
+      isEmailVerified: user.isEmailVerified,
+      currentBalance: user.currentBalance,
+      balanceStartDate: user.balanceStartDate,
+      greenThreshold: user.greenThreshold,
+      yellowThreshold: user.yellowThreshold,
+      ofxBankId: user.ofxBankId,
+      ofxAcctId: user.ofxAcctId,
+      createdAt: user.createdAt,
+    };
   }
 
   @Delete('me')
