@@ -1,6 +1,7 @@
 import { join } from 'path';
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
@@ -16,9 +17,11 @@ import { GoalsModule } from './goals/goals.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { ImportsModule } from './imports/imports.module';
 import { SupportModule } from './support/support.module';
+import { SentryUserInterceptor } from './common/interceptors/sentry-user.interceptor';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
@@ -44,7 +47,9 @@ import { SupportModule } from './support/support.module';
   controllers: [AppController],
   providers: [
     AppService,
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_INTERCEPTOR, useClass: SentryUserInterceptor },
   ],
 })
 export class AppModule {}
