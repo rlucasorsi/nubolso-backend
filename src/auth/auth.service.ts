@@ -221,26 +221,52 @@ export class AuthService {
       throw new UnauthorizedException('Token do Google inválido.');
     }
 
-    let user = await this.usersService.findByEmail(payload.email);
+    const { email, name, sub } = this.sanitizeGooglePayload({
+      email: payload.email,
+      name: payload.name,
+      sub: payload.sub,
+    });
+
+    let user = await this.usersService.findByEmail(email);
 
     if (user) {
       if (!user.googleId || !user.isEmailVerified) {
         user = await this.usersService.update(user.id, {
-          googleId: user.googleId ?? payload.sub,
+          googleId: user.googleId ?? sub,
           isEmailVerified: true,
         });
       }
     } else {
       user = await this.usersService.create({
-        email: payload.email,
-        name: payload.name || payload.email.split('@')[0],
-        googleId: payload.sub,
+        email,
+        name,
+        googleId: sub,
         isEmailVerified: true,
         currentBalance: 0,
       });
     }
 
     return this.buildAuthResponse(user);
+  }
+
+  private sanitizeGooglePayload(payload: {
+    email: string;
+    name?: string;
+    sub: string;
+  }): { email: string; name: string; sub: string } {
+    const stripTags = (str: string) => str.replace(/<[^>]*>/g, '').trim();
+
+    const email = payload.email.toLowerCase().trim().slice(0, 254);
+    const rawName = payload.name ? stripTags(payload.name).slice(0, 100) : '';
+    const name = rawName || email.split('@')[0].slice(0, 100);
+    // sub do Google é numérico, rejeita qualquer coisa fora de word chars e hífens
+    const sub = payload.sub.replace(/[^\w-]/g, '').slice(0, 255);
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !sub) {
+      throw new UnauthorizedException('Token do Google inválido.');
+    }
+
+    return { email, name, sub };
   }
 
   private async buildAuthResponse(user: User) {
