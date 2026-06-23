@@ -1,0 +1,9 @@
+# Skip when message is provided via -m, --amend, merge, squash, etc.
+[ -n "$2" ] && exit 0
+
+# Run commitizen only if a TTY is available (skips silently in CI/PowerShell)
+if [ -e /dev/tty ]; then
+  exec < /dev/tty && npx cz --hook || true
+else
+  exit 0
+fi
