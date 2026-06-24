@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -39,6 +40,17 @@ export class OfxImportService {
   constructor(private readonly prisma: PrismaService) {}
 
   async upload(userId: string, file: Express.Multer.File | undefined) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
+    });
+
+    if (user?.plan === 'FREE') {
+      throw new ForbiddenException(
+        'Importação de extratos OFX é um recurso exclusivo do plano PRO. Faça upgrade para utilizar.',
+      );
+    }
+
     this.validateFile(file);
 
     let parsed: ReturnType<typeof parseOfx>;

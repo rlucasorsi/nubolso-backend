@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
 import { CreateContributionDto } from './dto/create-contribution.dto';
+import { FREE_LIMITS } from '../billing/constants/plan-limits.constant';
 
 @Injectable()
 export class GoalsService {
@@ -17,6 +22,20 @@ export class GoalsService {
   }
 
   async create(userId: string, data: CreateGoalDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
+    });
+
+    if (user?.plan === 'FREE') {
+      const count = await this.prisma.goal.count({ where: { userId } });
+      if (count >= FREE_LIMITS.goals) {
+        throw new ForbiddenException(
+          `Plano gratuito permite até ${FREE_LIMITS.goals} metas. Faça upgrade para o PRO.`,
+        );
+      }
+    }
+
     return this.prisma.goal.create({
       data: {
         name: data.name,

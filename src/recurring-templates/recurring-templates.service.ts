@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecurringTemplateDto } from './dto/create-recurring-template.dto';
 import { UpdateRecurringTemplateDto } from './dto/update-recurring-template.dto';
 import { RealizeRecurringTemplateDto } from './dto/realize-recurring-template.dto';
 import { SkipRecurringTemplateDto } from './dto/skip-recurring-template.dto';
+import { FREE_LIMITS } from '../billing/constants/plan-limits.constant';
 
 @Injectable()
 export class RecurringTemplatesService {
@@ -26,6 +31,22 @@ export class RecurringTemplatesService {
   }
 
   async create(userId: string, data: CreateRecurringTemplateDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
+    });
+
+    if (user?.plan === 'FREE') {
+      const count = await this.prisma.recurringTemplate.count({
+        where: { userId, isActive: true },
+      });
+      if (count >= FREE_LIMITS.recurringTemplates) {
+        throw new ForbiddenException(
+          `Plano gratuito permite até ${FREE_LIMITS.recurringTemplates} recorrentes ativos. Faça upgrade para o PRO.`,
+        );
+      }
+    }
+
     return this.prisma.recurringTemplate.create({
       data: { ...data, userId },
       include: { category: true },

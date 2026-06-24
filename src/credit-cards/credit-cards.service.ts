@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCreditCardDto } from './dto/create-credit-card.dto';
 import { UpdateCreditCardDto } from './dto/update-credit-card.dto';
 import { computeInvoiceDates } from './utils/date-helpers';
 import { CreditCard } from '@prisma/client';
+import { FREE_LIMITS } from '../billing/constants/plan-limits.constant';
 
 @Injectable()
 export class CreditCardsService {
@@ -29,6 +34,22 @@ export class CreditCardsService {
   }
 
   async create(userId: string, data: CreateCreditCardDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { plan: true },
+    });
+
+    if (user?.plan === 'FREE') {
+      const count = await this.prisma.creditCard.count({
+        where: { userId, isActive: true },
+      });
+      if (count >= FREE_LIMITS.creditCards) {
+        throw new ForbiddenException(
+          `Plano gratuito permite até ${FREE_LIMITS.creditCards} cartão ativo. Faça upgrade para o PRO.`,
+        );
+      }
+    }
+
     return this.prisma.creditCard.create({
       data: { ...data, userId },
     });
@@ -75,8 +96,15 @@ export class CreditCardsService {
 
     await Promise.all(
       invoices.map((invoice) => {
-        const { paymentDate } = computeInvoiceDates(card, invoice.referenceYear, invoice.referenceMonth);
-        return this.prisma.creditCardInvoice.update({ where: { id: invoice.id }, data: { paymentDate } });
+        const { paymentDate } = computeInvoiceDates(
+          card,
+          invoice.referenceYear,
+          invoice.referenceMonth,
+        );
+        return this.prisma.creditCardInvoice.update({
+          where: { id: invoice.id },
+          data: { paymentDate },
+        });
       }),
     );
   }
