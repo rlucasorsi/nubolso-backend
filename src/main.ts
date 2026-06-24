@@ -9,14 +9,16 @@ const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL', 'RESEND_API_KEY'];
 function assertRequiredEnv(): void {
   const missing = REQUIRED_ENV_VARS.filter((v) => !process.env[v]);
   if (missing.length > 0) {
-    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+    throw new Error(
+      `Missing required environment variables: ${missing.join(', ')}`,
+    );
   }
 }
 
 async function bootstrap() {
   assertRequiredEnv();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const logger = new Logger('Bootstrap');
 
   const isProd = process.env.NODE_ENV === 'production';
@@ -35,4 +37,4 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`Application is running on port ${port}`);
 }
-bootstrap();
+void bootstrap();

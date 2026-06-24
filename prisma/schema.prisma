@@ -29,6 +29,10 @@ model User {
   yellowThreshold            Float                @default(0)
   ofxBankId                  String?
   ofxAcctId                  String?
+  stripeCustomerId           String?              @unique
+  stripeSubscriptionId       String?              @unique
+  plan                       Plan                 @default(FREE)
+  planExpiresAt              DateTime?
   createdAt                  DateTime             @default(now())
   transactions               Transaction[]
   recurringTemplates         RecurringTemplate[]
@@ -110,6 +114,11 @@ enum TransactionType {
   INCOME
   EXPENSE
   SPENDING
+}
+
+enum Plan {
+  FREE
+  PRO
 }
 
 model Goal {

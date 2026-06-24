@@ -17,6 +17,7 @@ import { GoalsModule } from './goals/goals.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { ImportsModule } from './imports/imports.module';
 import { SupportModule } from './support/support.module';
+import { BillingModule } from './billing/billing.module';
 import { SentryUserInterceptor } from './common/interceptors/sentry-user.interceptor';
 
 @Module({
@@ -26,9 +27,7 @@ import { SentryUserInterceptor } from './common/interceptors/sentry-user.interce
       isGlobal: true,
       envFilePath: '.env',
     }),
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: 100 },
-    ]),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
       serveRoot: '/public',
@@ -43,6 +42,7 @@ import { SentryUserInterceptor } from './common/interceptors/sentry-user.interce
     CreditCardsModule,
     ImportsModule,
     SupportModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [

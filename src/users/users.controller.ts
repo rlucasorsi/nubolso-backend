@@ -67,6 +67,8 @@ export class UsersController {
       yellowThreshold: user.yellowThreshold,
       ofxBankId: user.ofxBankId,
       ofxAcctId: user.ofxAcctId,
+      plan: user.plan,
+      planExpiresAt: user.planExpiresAt,
       createdAt: user.createdAt,
     };
   }
