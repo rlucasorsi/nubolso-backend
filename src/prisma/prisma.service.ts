@@ -1,11 +1,19 @@
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly pool: Pool;
   private readonly logger = new Logger(PrismaService.name);
 
@@ -28,8 +36,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     await this.$disconnect().catch((err) =>
       this.logger.error('Error disconnecting Prisma', err),
     );
-    await this.pool.end().catch((err) =>
-      this.logger.error('Error ending pg pool', err),
-    );
+    await this.pool
+      .end()
+      .catch((err) => this.logger.error('Error ending pg pool', err));
   }
 }

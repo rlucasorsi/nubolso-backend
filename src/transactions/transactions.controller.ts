@@ -1,10 +1,24 @@
-import { Controller, Get, Post, Patch, Body, Delete, Param, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Delete,
+  Param,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtUser } from '../auth/jwt-payload.type';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { createTransactionSchema, updateTransactionSchema, queryTransactionSchema } from './schemas';
+import {
+  createTransactionSchema,
+  updateTransactionSchema,
+  queryTransactionSchema,
+} from './schemas';
 import type { CreateTransactionDto } from './dto/create-transaction.dto';
 import type { UpdateTransactionDto } from './dto/update-transaction.dto';
 import type { QueryTransactionDto } from './dto/query-transaction.dto';
@@ -17,7 +31,8 @@ export class TransactionsController {
   @Get()
   findAll(
     @CurrentUser() user: JwtUser,
-    @Query(new ZodValidationPipe(queryTransactionSchema)) query: QueryTransactionDto,
+    @Query(new ZodValidationPipe(queryTransactionSchema))
+    query: QueryTransactionDto,
   ) {
     return this.transactionsService.findAll(user.sub, query);
   }
@@ -25,7 +40,8 @@ export class TransactionsController {
   @Post()
   create(
     @CurrentUser() user: JwtUser,
-    @Body(new ZodValidationPipe(createTransactionSchema)) data: CreateTransactionDto,
+    @Body(new ZodValidationPipe(createTransactionSchema))
+    data: CreateTransactionDto,
   ) {
     return this.transactionsService.create(user.sub, data);
   }
@@ -39,7 +55,8 @@ export class TransactionsController {
   update(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(updateTransactionSchema)) data: UpdateTransactionDto,
+    @Body(new ZodValidationPipe(updateTransactionSchema))
+    data: UpdateTransactionDto,
   ) {
     return this.transactionsService.update(user.sub, id, data);
   }

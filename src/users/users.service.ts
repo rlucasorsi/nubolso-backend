@@ -32,34 +32,39 @@ export class UsersService {
   }
 
   async deleteAccount(id: string): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      // Null out FK references that lack cascade before deleting the targets
-      await tx.creditCardInstallment.updateMany({
-        where: { invoice: { userId: id } },
-        data: { advanceId: null, isAnticipated: false },
-      });
-      await tx.creditCardInvoice.updateMany({
-        where: { userId: id },
-        data: { transactionId: null },
-      });
-      await tx.transaction.updateMany({
-        where: { userId: id },
-        data: { importBatchId: null, templateId: null },
-      });
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Null out FK references that lack cascade before deleting the targets
+        await tx.creditCardInstallment.updateMany({
+          where: { invoice: { userId: id } },
+          data: { advanceId: null, isAnticipated: false },
+        });
+        await tx.creditCardInvoice.updateMany({
+          where: { userId: id },
+          data: { transactionId: null },
+        });
+        await tx.transaction.updateMany({
+          where: { userId: id },
+          data: { importBatchId: null, templateId: null },
+        });
 
-      // Delete in dependency order (children before parents)
-      await tx.installmentAdvance.deleteMany({ where: { userId: id } });
-      await tx.creditCardInstallment.deleteMany({ where: { invoice: { userId: id } } });
-      await tx.creditCardPurchase.deleteMany({ where: { userId: id } });
-      await tx.creditCardInvoice.deleteMany({ where: { userId: id } });
-      await tx.creditCard.deleteMany({ where: { userId: id } });
-      await tx.importBatch.deleteMany({ where: { userId: id } }); // items cascade
-      await tx.transaction.deleteMany({ where: { userId: id } });
-      await tx.recurringTemplate.deleteMany({ where: { userId: id } });
-      await tx.category.deleteMany({ where: { userId: id } });
-      await tx.goal.deleteMany({ where: { userId: id } }); // contributions cascade
-      await tx.user.delete({ where: { id } });
-    }, { timeout: 30000 });
+        // Delete in dependency order (children before parents)
+        await tx.installmentAdvance.deleteMany({ where: { userId: id } });
+        await tx.creditCardInstallment.deleteMany({
+          where: { invoice: { userId: id } },
+        });
+        await tx.creditCardPurchase.deleteMany({ where: { userId: id } });
+        await tx.creditCardInvoice.deleteMany({ where: { userId: id } });
+        await tx.creditCard.deleteMany({ where: { userId: id } });
+        await tx.importBatch.deleteMany({ where: { userId: id } }); // items cascade
+        await tx.transaction.deleteMany({ where: { userId: id } });
+        await tx.recurringTemplate.deleteMany({ where: { userId: id } });
+        await tx.category.deleteMany({ where: { userId: id } });
+        await tx.goal.deleteMany({ where: { userId: id } }); // contributions cascade
+        await tx.user.delete({ where: { id } });
+      },
+      { timeout: 30000 },
+    );
   }
 
   async exportData(id: string) {
@@ -73,7 +78,10 @@ export class UsersService {
         creditCards: {
           include: {
             invoices: {
-              include: { installments: { include: { purchase: true } }, advances: true },
+              include: {
+                installments: { include: { purchase: true } },
+                advances: true,
+              },
             },
           },
         },
@@ -83,7 +91,9 @@ export class UsersService {
 
     if (!user) return null;
 
-    const { passwordHash, verificationCode, passwordResetCode, ...safeUser } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash, verificationCode, passwordResetCode, ...safeUser } =
+      user;
     return { exportedAt: new Date().toISOString(), ...safeUser };
   }
 }

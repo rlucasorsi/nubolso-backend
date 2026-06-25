@@ -32,7 +32,11 @@ export class CreditCardPurchasesService {
     },
   ): InstallmentPlanItem[] {
     const purchaseDate = new Date(dto.purchaseDate);
-    const amounts = distributeAmounts(dto.totalAmount, dto.installmentsCount, dto.strategy);
+    const amounts = distributeAmounts(
+      dto.totalAmount,
+      dto.installmentsCount,
+      dto.strategy,
+    );
 
     return amounts.map((amount, idx) => {
       const number = idx + 1;
@@ -193,7 +197,9 @@ export class CreditCardPurchasesService {
     } else {
       const sorted = [...pendingInstallments].sort((a, b) => {
         const diff = a.invoice.referenceYear - b.invoice.referenceYear;
-        return diff !== 0 ? diff : a.invoice.referenceMonth - b.invoice.referenceMonth;
+        return diff !== 0
+          ? diff
+          : a.invoice.referenceMonth - b.invoice.referenceMonth;
       });
       targetYear = sorted[0].invoice.referenceYear;
       targetMonth = sorted[0].invoice.referenceMonth;
@@ -229,7 +235,11 @@ export class CreditCardPurchasesService {
         });
 
         if (!targetInvoice) {
-          const dates = computeInvoiceDates(purchase.card, targetYear, targetMonth);
+          const dates = computeInvoiceDates(
+            purchase.card,
+            targetYear,
+            targetMonth,
+          );
           targetInvoice = await tx.creditCardInvoice.create({
             data: {
               referenceYear: targetYear,
@@ -290,7 +300,9 @@ export class CreditCardPurchasesService {
       );
     }
 
-    const invoiceIds = [...new Set(purchase.installments.map((i) => i.invoiceId))];
+    const invoiceIds = [
+      ...new Set(purchase.installments.map((i) => i.invoiceId)),
+    ];
 
     await this.prisma.creditCardPurchase.delete({ where: { id, userId } });
 

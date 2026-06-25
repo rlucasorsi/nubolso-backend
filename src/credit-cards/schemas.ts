@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const isoDate = z.string().refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
+const isoDate = z
+  .string()
+  .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
 const dayRange = z.number().int().min(1).max(31);
 
 export const createCreditCardSchema = z.object({
@@ -60,5 +62,7 @@ export type UpdateCreditCardDto = z.infer<typeof updateCreditCardSchema>;
 export type CreatePurchaseDto = z.infer<typeof createPurchaseSchema>;
 export type PayInvoiceDto = z.infer<typeof payInvoiceSchema>;
 export type UpdateInvoiceDto = z.infer<typeof updateInvoiceSchema>;
-export type AnticipateInstallmentsDto = z.infer<typeof anticipateInstallmentsSchema>;
+export type AnticipateInstallmentsDto = z.infer<
+  typeof anticipateInstallmentsSchema
+>;
 export type AdvanceInstallmentsDto = z.infer<typeof advanceInstallmentsSchema>;

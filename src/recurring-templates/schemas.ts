@@ -6,8 +6,10 @@ const isoDate = z
   .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' })
   .transform((s) => new Date(s));
 
-const endConditionRefine = (data: { endDate?: Date | string | null; totalOccurrences?: number | null }) =>
-  !(data.endDate && data.totalOccurrences);
+const endConditionRefine = (data: {
+  endDate?: Date | string | null;
+  totalOccurrences?: number | null;
+}) => !(data.endDate && data.totalOccurrences);
 
 export const createRecurringTemplateSchema = z
   .object({
@@ -48,7 +50,15 @@ export const skipRecurringTemplateSchema = z.object({
   date: isoDate,
 });
 
-export type CreateRecurringTemplateDto = z.infer<typeof createRecurringTemplateSchema>;
-export type UpdateRecurringTemplateDto = z.infer<typeof updateRecurringTemplateSchema>;
-export type RealizeRecurringTemplateDto = z.infer<typeof realizeRecurringTemplateSchema>;
-export type SkipRecurringTemplateDto = z.infer<typeof skipRecurringTemplateSchema>;
+export type CreateRecurringTemplateDto = z.infer<
+  typeof createRecurringTemplateSchema
+>;
+export type UpdateRecurringTemplateDto = z.infer<
+  typeof updateRecurringTemplateSchema
+>;
+export type RealizeRecurringTemplateDto = z.infer<
+  typeof realizeRecurringTemplateSchema
+>;
+export type SkipRecurringTemplateDto = z.infer<
+  typeof skipRecurringTemplateSchema
+>;
