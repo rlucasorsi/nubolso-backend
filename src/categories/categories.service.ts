@@ -13,7 +13,10 @@ export class CategoriesService {
     });
   }
 
-  async create(userId: string, data: { name: string; color?: string; type: TransactionType }) {
+  async create(
+    userId: string,
+    data: { name: string; color?: string; type: TransactionType },
+  ) {
     return this.prisma.category.create({
       data: {
         ...data,

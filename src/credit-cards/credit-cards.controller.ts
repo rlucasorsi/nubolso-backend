@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  UseGuards,
+} from '@nestjs/common';
 import { CreditCardsService } from './credit-cards.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -21,7 +30,8 @@ export class CreditCardsController {
   @Post()
   create(
     @CurrentUser() user: JwtUser,
-    @Body(new ZodValidationPipe(createCreditCardSchema)) data: CreateCreditCardDto,
+    @Body(new ZodValidationPipe(createCreditCardSchema))
+    data: CreateCreditCardDto,
   ) {
     return this.creditCardsService.create(user.sub, data);
   }
@@ -30,7 +40,8 @@ export class CreditCardsController {
   update(
     @CurrentUser() user: JwtUser,
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(updateCreditCardSchema)) data: UpdateCreditCardDto,
+    @Body(new ZodValidationPipe(updateCreditCardSchema))
+    data: UpdateCreditCardDto,
   ) {
     return this.creditCardsService.update(user.sub, id, data);
   }

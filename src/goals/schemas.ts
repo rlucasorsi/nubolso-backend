@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const isoDate = z.string().refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
+const isoDate = z
+  .string()
+  .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
 
 const goalContributionSchema = z.object({
   id: z.string().optional(),
@@ -44,4 +46,6 @@ export const listContributionsQuerySchema = z.object({
 export type CreateGoalDto = z.infer<typeof createGoalSchema>;
 export type UpdateGoalDto = z.infer<typeof updateGoalSchema>;
 export type CreateContributionDto = z.infer<typeof createContributionSchema>;
-export type ListContributionsQueryDto = z.infer<typeof listContributionsQuerySchema>;
+export type ListContributionsQueryDto = z.infer<
+  typeof listContributionsQuerySchema
+>;

@@ -14,7 +14,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtUser } from '../auth/jwt-payload.type';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
-import { updateInvoiceSchema, payInvoiceSchema, anticipateInstallmentsSchema } from './schemas';
+import {
+  updateInvoiceSchema,
+  payInvoiceSchema,
+  anticipateInstallmentsSchema,
+} from './schemas';
 import type { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import type { PayInvoiceDto } from './dto/pay-invoice.dto';
 import type { AnticipateInstallmentsDto } from './dto/anticipate-installments.dto';
