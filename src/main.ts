@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import './instrument';
 import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
 const REQUIRED_ENV_VARS = ['JWT_SECRET', 'DATABASE_URL', 'RESEND_API_KEY'];
@@ -18,8 +18,12 @@ function assertRequiredEnv(): void {
 async function bootstrap() {
   assertRequiredEnv();
 
-  const app = await NestFactory.create(AppModule, { rawBody: true });
-  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+    bufferLogs: true,
+  });
+  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
 
   const isProd = process.env.NODE_ENV === 'production';
   const allowedOrigins = isProd
@@ -37,6 +41,6 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  logger.log(`Application is running on port ${port}`);
+  logger.log(`Application is running on port ${port}`, 'Bootstrap');
 }
 void bootstrap();

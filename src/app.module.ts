@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -19,6 +20,7 @@ import { ImportsModule } from './imports/imports.module';
 import { SupportModule } from './support/support.module';
 import { BillingModule } from './billing/billing.module';
 import { SentryUserInterceptor } from './common/interceptors/sentry-user.interceptor';
+import { loggerConfig } from './common/logger/logger.config';
 
 @Module({
   imports: [
@@ -27,6 +29,7 @@ import { SentryUserInterceptor } from './common/interceptors/sentry-user.interce
       isGlobal: true,
       envFilePath: '.env',
     }),
+    LoggerModule.forRoot(loggerConfig),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 100 }]),
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),

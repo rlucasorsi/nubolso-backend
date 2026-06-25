@@ -4,19 +4,18 @@ import {
   Req,
   Headers,
   BadRequestException,
-  Logger,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import Stripe from 'stripe';
+import { Logger } from 'nestjs-pino';
 import { StripeService } from './stripe.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('billing')
 export class WebhookController {
-  private readonly logger = new Logger(WebhookController.name);
-
   constructor(
+    private readonly logger: Logger,
     private readonly stripeService: StripeService,
     private readonly prisma: PrismaService,
   ) {}
@@ -41,8 +40,13 @@ export class WebhookController {
 
     try {
       await this.processEvent(event);
-    } catch (err) {
-      this.logger.error(`Failed to process webhook event ${event.type}`, err);
+    } catch (caughtErr) {
+      const err =
+        caughtErr instanceof Error ? caughtErr : new Error(String(caughtErr));
+      this.logger.error(
+        { eventId: event.id, eventType: event.type, err },
+        'Failed to process webhook event',
+      );
     }
 
     return { received: true };
@@ -65,7 +69,10 @@ export class WebhookController {
           },
         });
 
-        this.logger.log(`User ${userId} upgraded to PRO`);
+        this.logger.log(
+          { eventId: event.id, eventType: event.type, userId, subscriptionId },
+          'User upgraded to PRO',
+        );
         break;
       }
 
@@ -85,7 +92,14 @@ export class WebhookController {
         });
 
         this.logger.log(
-          `Subscription ${subscription.id} status=${subscription.status} — plan set to ${isActive ? 'PRO' : 'FREE'}`,
+          {
+            eventId: event.id,
+            eventType: event.type,
+            subscriptionId: subscription.id,
+            subscriptionStatus: subscription.status,
+            plan: isActive ? 'PRO' : 'FREE',
+          },
+          'Subscription plan updated',
         );
         break;
       }
