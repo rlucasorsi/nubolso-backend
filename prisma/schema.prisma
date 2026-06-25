@@ -27,6 +27,7 @@ model User {
   balanceStartDate           DateTime?
   greenThreshold             Float                @default(0)
   yellowThreshold            Float                @default(0)
+  cashflowStartDay           Int                  @default(1)
   ofxBankId                  String?
   ofxAcctId                  String?
   stripeCustomerId           String?              @unique

@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-const isoDate = z.string().refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
+const isoDate = z
+  .string()
+  .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
 
 export const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
@@ -8,6 +10,7 @@ export const updateUserSchema = z.object({
   balanceStartDate: isoDate.optional(),
   greenThreshold: z.number().min(0).optional(),
   yellowThreshold: z.number().min(0).optional(),
+  cashflowStartDay: z.number().int().min(1).max(31).optional(),
 });
 
 export type UpdateUserDto = z.infer<typeof updateUserSchema>;

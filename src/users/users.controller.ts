@@ -65,6 +65,7 @@ export class UsersController {
       balanceStartDate: user.balanceStartDate,
       greenThreshold: user.greenThreshold,
       yellowThreshold: user.yellowThreshold,
+      cashflowStartDay: user.cashflowStartDay,
       ofxBankId: user.ofxBankId,
       ofxAcctId: user.ofxAcctId,
       plan: user.plan,
