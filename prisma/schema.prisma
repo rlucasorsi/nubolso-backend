@@ -44,6 +44,8 @@ model User {
   creditCardInvoices         CreditCardInvoice[]
   installmentAdvances        InstallmentAdvance[]
   importBatches              ImportBatch[]
+  notifications              Notification[]
+  pushSubscriptions          PushSubscription[]
 }
 
 model RecurringTemplate {
@@ -284,6 +286,43 @@ enum ImportItemStatus {
 enum ImportItemDecision {
   IMPORT
   SKIP
+}
+
+enum NotificationType {
+  RECURRING_DUE
+  INVOICE_DUE
+  BALANCE_WARNING
+  GENERIC
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  body       String
+  data       Json?
+  readAt     DateTime?
+  // {type}:{entityId}:{YYYY-MM-DD} — used by the cron job to skip already-sent notifications
+  dedupeKey  String?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId])
+  @@index([userId, dedupeKey])
+  @@index([createdAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // Um lote de importação de OFX. Fica em PENDING_REVIEW até o usuário confirmar

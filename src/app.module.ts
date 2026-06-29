@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { SentryModule, SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerModule } from 'nestjs-pino';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -19,6 +20,7 @@ import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { ImportsModule } from './imports/imports.module';
 import { SupportModule } from './support/support.module';
 import { BillingModule } from './billing/billing.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { SentryUserInterceptor } from './common/interceptors/sentry-user.interceptor';
 import { loggerConfig } from './common/logger/logger.config';
 
@@ -35,6 +37,7 @@ import { loggerConfig } from './common/logger/logger.config';
       rootPath: join(__dirname, '..', 'public'),
       serveRoot: '/public',
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -46,6 +49,7 @@ import { loggerConfig } from './common/logger/logger.config';
     ImportsModule,
     SupportModule,
     BillingModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [
