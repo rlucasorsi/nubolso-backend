@@ -9,6 +9,7 @@ import { CreateRecurringTemplateDto } from './dto/create-recurring-template.dto'
 import { UpdateRecurringTemplateDto } from './dto/update-recurring-template.dto';
 import { RealizeRecurringTemplateDto } from './dto/realize-recurring-template.dto';
 import { SkipRecurringTemplateDto } from './dto/skip-recurring-template.dto';
+import { RealizeBatchRecurringTemplateDto } from './schemas';
 import { FREE_LIMITS } from '../billing/constants/plan-limits.constant';
 
 @Injectable()
@@ -140,6 +141,26 @@ export class RecurringTemplatesService {
         include: { category: true },
       });
     });
+  }
+
+  async realizeBatch(userId: string, data: RealizeBatchRecurringTemplateDto) {
+    const results = await Promise.allSettled(
+      data.items.map((item) =>
+        this.realize(userId, item.id, {
+          amount: item.amount,
+          date: item.date,
+          isPaid: item.isPaid,
+        }),
+      ),
+    );
+
+    const fulfilled = results
+      .filter((r) => r.status === 'fulfilled')
+      .map((r) => (r as PromiseFulfilledResult<unknown>).value);
+
+    const failedCount = results.filter((r) => r.status === 'rejected').length;
+
+    return { realized: fulfilled, failedCount };
   }
 
   private async findOne(

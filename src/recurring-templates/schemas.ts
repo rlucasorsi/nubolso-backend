@@ -50,6 +50,19 @@ export const skipRecurringTemplateSchema = z.object({
   date: isoDate,
 });
 
+export const realizeBatchRecurringTemplateSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        amount: z.number().positive('Valor deve ser positivo'),
+        date: isoDate,
+        isPaid: z.boolean().optional(),
+      }),
+    )
+    .min(1),
+});
+
 export type CreateRecurringTemplateDto = z.infer<
   typeof createRecurringTemplateSchema
 >;
@@ -61,4 +74,7 @@ export type RealizeRecurringTemplateDto = z.infer<
 >;
 export type SkipRecurringTemplateDto = z.infer<
   typeof skipRecurringTemplateSchema
+>;
+export type RealizeBatchRecurringTemplateDto = z.infer<
+  typeof realizeBatchRecurringTemplateSchema
 >;

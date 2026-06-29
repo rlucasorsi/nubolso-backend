@@ -18,11 +18,13 @@ import {
   updateRecurringTemplateSchema,
   realizeRecurringTemplateSchema,
   skipRecurringTemplateSchema,
+  realizeBatchRecurringTemplateSchema,
 } from './schemas';
 import type { CreateRecurringTemplateDto } from './dto/create-recurring-template.dto';
 import type { UpdateRecurringTemplateDto } from './dto/update-recurring-template.dto';
 import type { RealizeRecurringTemplateDto } from './dto/realize-recurring-template.dto';
 import type { SkipRecurringTemplateDto } from './dto/skip-recurring-template.dto';
+import type { RealizeBatchRecurringTemplateDto } from './schemas';
 
 @Controller('recurring-templates')
 @UseGuards(JwtAuthGuard)
@@ -78,5 +80,14 @@ export class RecurringTemplatesController {
     data: SkipRecurringTemplateDto,
   ) {
     return this.recurringTemplatesService.skip(user.sub, id, data);
+  }
+
+  @Post('realize-batch')
+  realizeBatch(
+    @CurrentUser() user: JwtUser,
+    @Body(new ZodValidationPipe(realizeBatchRecurringTemplateSchema))
+    data: RealizeBatchRecurringTemplateDto,
+  ) {
+    return this.recurringTemplatesService.realizeBatch(user.sub, data);
   }
 }
