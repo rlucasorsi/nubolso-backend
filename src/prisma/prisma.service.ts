@@ -4,7 +4,7 @@ import {
   OnModuleDestroy,
   Logger,
 } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { ConfigService } from '@nestjs/config';
@@ -30,6 +30,21 @@ export class PrismaService
 
   async onModuleInit() {
     await this.$connect();
+  }
+
+  async withUser<T>(
+    userId: string,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+    options?: {
+      timeout?: number;
+      maxWait?: number;
+      isolationLevel?: Prisma.TransactionIsolationLevel;
+    },
+  ): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
+      return fn(tx);
+    }, options);
   }
 
   async onModuleDestroy() {

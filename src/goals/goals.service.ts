@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGoalDto } from './dto/create-goal.dto';
 import { UpdateGoalDto } from './dto/update-goal.dto';
@@ -14,54 +15,58 @@ export class GoalsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(userId: string) {
-    return this.prisma.goal.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'asc' },
-      include: { contributions: { orderBy: { date: 'desc' } } },
-    });
+    return this.prisma.withUser(userId, (tx) =>
+      tx.goal.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+        include: { contributions: { orderBy: { date: 'desc' } } },
+      }),
+    );
   }
 
   async create(userId: string, data: CreateGoalDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { plan: true },
-    });
+    return this.prisma.withUser(userId, async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { plan: true },
+      });
 
-    if (user?.plan === 'FREE') {
-      const count = await this.prisma.goal.count({ where: { userId } });
-      if (count >= FREE_LIMITS.goals) {
-        throw new ForbiddenException(
-          `Plano gratuito permite até ${FREE_LIMITS.goals} metas. Faça upgrade para o PRO.`,
-        );
+      if (user?.plan === 'FREE') {
+        const count = await tx.goal.count({ where: { userId } });
+        if (count >= FREE_LIMITS.goals) {
+          throw new ForbiddenException(
+            `Plano gratuito permite até ${FREE_LIMITS.goals} metas. Faça upgrade para o PRO.`,
+          );
+        }
       }
-    }
 
-    return this.prisma.goal.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        icon: data.icon,
-        color: data.color,
-        targetAmount: data.targetAmount,
-        savedAmount: data.savedAmount ?? 0,
-        deadline: new Date(data.deadline),
-        userId,
-      },
-      include: { contributions: true },
+      return tx.goal.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          icon: data.icon,
+          color: data.color,
+          targetAmount: data.targetAmount,
+          savedAmount: data.savedAmount ?? 0,
+          deadline: new Date(data.deadline),
+          userId,
+        },
+        include: { contributions: true },
+      });
     });
   }
 
   async update(userId: string, id: string, data: UpdateGoalDto) {
-    await this.findOne(userId, id);
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.findOne(tx, userId, id);
 
-    const {
-      contributions,
-      deadline,
-      savedAmount: savedAmountInput,
-      ...rest
-    } = data;
+      const {
+        contributions,
+        deadline,
+        savedAmount: savedAmountInput,
+        ...rest
+      } = data;
 
-    return this.prisma.$transaction(async (tx) => {
       let savedAmount = savedAmountInput;
 
       if (contributions !== undefined) {
@@ -94,9 +99,10 @@ export class GoalsService {
   }
 
   async remove(userId: string, id: string) {
-    await this.findOne(userId, id);
-
-    return this.prisma.goal.delete({ where: { id, userId } });
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.findOne(tx, userId, id);
+      return tx.goal.delete({ where: { id, userId } });
+    });
   }
 
   async addContribution(
@@ -104,9 +110,9 @@ export class GoalsService {
     id: string,
     data: CreateContributionDto,
   ) {
-    const goal = await this.findOne(userId, id);
+    return this.prisma.withUser(userId, async (tx) => {
+      const goal = await this.findOne(tx, userId, id);
 
-    return this.prisma.$transaction(async (tx) => {
       await tx.goalContribution.create({
         data: {
           amount: data.amount,
@@ -130,25 +136,21 @@ export class GoalsService {
     page: number,
     limit: number,
   ) {
-    await this.findOne(userId, id);
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.findOne(tx, userId, id);
 
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.goalContribution.findMany({
-        where: { goalId: id },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.goalContribution.count({ where: { goalId: id } }),
-    ]);
+      const [data, total] = await Promise.all([
+        tx.goalContribution.findMany({
+          where: { goalId: id },
+          orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        tx.goalContribution.count({ where: { goalId: id } }),
+      ]);
 
-    return {
-      data,
-      page,
-      limit,
-      total,
-      hasMore: page * limit < total,
-    };
+      return { data, page, limit, total, hasMore: page * limit < total };
+    });
   }
 
   async removeContribution(
@@ -156,31 +158,35 @@ export class GoalsService {
     goalId: string,
     contributionId: string,
   ) {
-    const goal = await this.findOne(userId, goalId);
+    return this.prisma.withUser(userId, async (tx) => {
+      const goal = await this.findOne(tx, userId, goalId);
 
-    const contribution = await this.prisma.goalContribution.findFirst({
-      where: { id: contributionId, goalId },
-    });
+      const contribution = await tx.goalContribution.findFirst({
+        where: { id: contributionId, goalId },
+      });
 
-    if (!contribution) {
-      throw new NotFoundException('Contribution not found');
-    }
+      if (!contribution) {
+        throw new NotFoundException('Contribution not found');
+      }
 
-    await this.prisma.goalContribution.delete({
-      where: { id: contributionId },
-    });
+      await tx.goalContribution.delete({ where: { id: contributionId } });
 
-    return this.prisma.goal.update({
-      where: { id: goalId, userId },
-      data: {
-        savedAmount: Math.max(0, goal.savedAmount - contribution.amount),
-      },
-      include: { contributions: { orderBy: { date: 'desc' } } },
+      return tx.goal.update({
+        where: { id: goalId, userId },
+        data: {
+          savedAmount: Math.max(0, goal.savedAmount - contribution.amount),
+        },
+        include: { contributions: { orderBy: { date: 'desc' } } },
+      });
     });
   }
 
-  private async findOne(userId: string, id: string) {
-    const goal = await this.prisma.goal.findFirst({ where: { id, userId } });
+  private async findOne(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    id: string,
+  ) {
+    const goal = await tx.goal.findFirst({ where: { id, userId } });
 
     if (!goal) {
       throw new NotFoundException('Goal not found');

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PayInvoiceDto } from './dto/pay-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
@@ -46,100 +47,93 @@ export class CreditCardInvoicesService {
   constructor(private prisma: PrismaService) {}
 
   async findAllForCard(userId: string, cardId: string) {
-    const card = await this.prisma.creditCard.findFirst({
-      where: { id: cardId, userId },
-    });
-    if (!card) throw new NotFoundException('Credit card not found');
+    return this.prisma.withUser(userId, async (tx) => {
+      const card = await tx.creditCard.findFirst({
+        where: { id: cardId, userId },
+      });
+      if (!card) throw new NotFoundException('Credit card not found');
 
-    const invoices = await this.prisma.creditCardInvoice.findMany({
-      where: { cardId, userId },
-      include: {
-        installments: { include: { purchase: true } },
-        advances: true,
-        transaction: true,
-      },
-      orderBy: [{ referenceYear: 'asc' }, { referenceMonth: 'asc' }],
-    });
+      const invoices = await tx.creditCardInvoice.findMany({
+        where: { cardId, userId },
+        include: {
+          installments: { include: { purchase: true } },
+          advances: true,
+          transaction: true,
+        },
+        orderBy: [{ referenceYear: 'asc' }, { referenceMonth: 'asc' }],
+      });
 
-    return invoices.map((invoice) => ({
-      ...invoice,
-      totalAmount: computeTotal(invoice.installments, invoice.advances),
-    }));
+      return invoices.map((invoice) => ({
+        ...invoice,
+        totalAmount: computeTotal(invoice.installments, invoice.advances),
+      }));
+    });
   }
 
   async findAllForUser(userId: string, from?: string, to?: string) {
-    const invoices = await this.prisma.creditCardInvoice.findMany({
-      where: {
-        userId,
-        paymentDate: {
-          gte: from ? new Date(from) : undefined,
-          lte: to ? new Date(to) : undefined,
+    return this.prisma.withUser(userId, async (tx) => {
+      const invoices = await tx.creditCardInvoice.findMany({
+        where: {
+          userId,
+          paymentDate: {
+            gte: from ? new Date(from) : undefined,
+            lte: to ? new Date(to) : undefined,
+          },
         },
-      },
-      include: {
-        installments: true,
-        advances: true,
-        transaction: true,
-        card: true,
-      },
-      orderBy: { paymentDate: 'asc' },
-    });
+        include: {
+          installments: true,
+          advances: true,
+          transaction: true,
+          card: true,
+        },
+        orderBy: { paymentDate: 'asc' },
+      });
 
-    return invoices.map((invoice) => ({
-      ...invoice,
-      totalAmount: computeTotal(invoice.installments, invoice.advances),
-    }));
+      return invoices.map((invoice) => ({
+        ...invoice,
+        totalAmount: computeTotal(invoice.installments, invoice.advances),
+      }));
+    });
   }
 
   async findOne(userId: string, id: string) {
-    const invoice = await this.prisma.creditCardInvoice.findFirst({
-      where: { id, userId },
-      include: {
-        installments: { include: { purchase: true } },
-        advances: true,
-        transaction: true,
-        card: true,
-        remainderPurchases: true,
-      },
-    });
-
-    if (!invoice) throw new NotFoundException('Invoice not found');
-
-    return {
-      ...invoice,
-      totalAmount: computeTotal(invoice.installments, invoice.advances),
-    };
+    return this.prisma.withUser(userId, (tx) =>
+      this.findOneInTx(tx, userId, id),
+    );
   }
 
   async updatePaymentDate(userId: string, id: string, dto: UpdateInvoiceDto) {
-    const invoice = await this.findOne(userId, id);
-    if (invoice.isPaid) {
-      throw new BadRequestException(
-        'Não é possível alterar a data de pagamento de uma fatura já paga',
-      );
-    }
+    return this.prisma.withUser(userId, async (tx) => {
+      const invoice = await this.findOneInTx(tx, userId, id);
+      if (invoice.isPaid) {
+        throw new BadRequestException(
+          'Não é possível alterar a data de pagamento de uma fatura já paga',
+        );
+      }
 
-    return this.prisma.creditCardInvoice.update({
-      where: { id, userId },
-      data: {
-        paymentDate: new Date(dto.paymentDate),
-        paymentDateOverridden: true,
-      },
+      return tx.creditCardInvoice.update({
+        where: { id, userId },
+        data: {
+          paymentDate: new Date(dto.paymentDate),
+          paymentDateOverridden: true,
+        },
+      });
     });
   }
 
   async pay(userId: string, id: string, dto: PayInvoiceDto) {
-    const invoice = await this.findOne(userId, id);
-    if (invoice.isPaid) throw new BadRequestException('Fatura já paga');
-
-    const card = invoice.card;
-    const paymentDate = dto.paymentDate
-      ? new Date(dto.paymentDate)
-      : invoice.paymentDate;
-    const isFullPayment = dto.amount >= invoice.totalAmount - 0.005;
-
-    return this.prisma.$transaction(
+    return this.prisma.withUser(
+      userId,
       async (tx) => {
+        const invoice = await this.findOneInTx(tx, userId, id);
+        if (invoice.isPaid) throw new BadRequestException('Fatura já paga');
+
+        const card = invoice.card;
+        const paymentDate = dto.paymentDate
+          ? new Date(dto.paymentDate)
+          : invoice.paymentDate;
+        const isFullPayment = dto.amount >= invoice.totalAmount - 0.005;
+
         const transaction = invoice.transactionId
           ? await tx.transaction.update({
               where: { id: invoice.transactionId, userId },
@@ -179,7 +173,6 @@ export class CreditCardInvoicesService {
           const remainderAmount = invoice.totalAmount - dto.amount;
           const installmentsCount = dto.remainderInstallments ?? 1;
 
-          // Resolve total with interest
           let totalRemainder: number;
           if (dto.installmentAmount) {
             totalRemainder = dto.installmentAmount * installmentsCount;
@@ -248,79 +241,78 @@ export class CreditCardInvoicesService {
     cardId: string,
     dto: AnticipateInstallmentsDto,
   ) {
-    const card = await this.prisma.creditCard.findFirst({
-      where: { id: cardId, userId },
-    });
-    if (!card) throw new NotFoundException('Cartão não encontrado');
-
-    // "Fatura atual" = a fatura não paga com o menor paymentDate
-    const currentInvoice = await this.prisma.creditCardInvoice.findFirst({
-      where: { cardId, userId, isPaid: false },
-      orderBy: { paymentDate: 'asc' },
-    });
-    if (!currentInvoice) {
-      throw new UnprocessableEntityException(
-        'Nenhuma fatura aberta encontrada para este cartão',
-      );
-    }
-
-    const purchase = await this.prisma.creditCardPurchase.findFirst({
-      where: { id: dto.purchaseId, userId, cardId },
-      include: {
-        installments: {
-          include: { invoice: true },
-          orderBy: { number: 'asc' },
-        },
-      },
-    });
-    if (!purchase)
-      throw new NotFoundException('Compra não encontrada neste cartão');
-
-    // Parcelas elegíveis: não antecipadas, em fatura não paga, DEPOIS da fatura atual
-    const eligible = purchase.installments.filter(
-      (i) =>
-        !i.isAnticipated &&
-        !i.invoice.isPaid &&
-        i.invoice.paymentDate > currentInvoice.paymentDate,
-    );
-
-    if (eligible.length === 0) {
-      throw new UnprocessableEntityException(
-        'Nenhuma parcela futura elegível para antecipação',
-      );
-    }
-    if (dto.installmentsCount > eligible.length) {
-      throw new BadRequestException(
-        `Quantidade solicitada (${dto.installmentsCount}) excede as parcelas disponíveis (${eligible.length})`,
-      );
-    }
-
-    // "Últimas N" = as mais distantes no tempo (maior paymentDate / maior number)
-    const sorted = [...eligible].sort((a, b) => {
-      const diff =
-        b.invoice.paymentDate.getTime() - a.invoice.paymentDate.getTime();
-      return diff !== 0 ? diff : b.number - a.number;
-    });
-    const toAnticipate = sorted.slice(0, dto.installmentsCount);
-
-    const originalAmount =
-      Math.round(toAnticipate.reduce((sum, i) => sum + i.amount, 0) * 100) /
-      100;
-
-    if (dto.paidAmount > originalAmount + 0.005) {
-      throw new BadRequestException(
-        'O valor a pagar não pode ser maior que o valor original das parcelas',
-      );
-    }
-    const discount = Math.round((originalAmount - dto.paidAmount) * 100) / 100;
-
-    const toAnticipateIds = toAnticipate.map((i) => i.id);
-    const affectedInvoiceIds = [
-      ...new Set(toAnticipate.map((i) => i.invoiceId)),
-    ];
-
-    return this.prisma.$transaction(
+    return this.prisma.withUser(
+      userId,
       async (tx) => {
+        const card = await tx.creditCard.findFirst({
+          where: { id: cardId, userId },
+        });
+        if (!card) throw new NotFoundException('Cartão não encontrado');
+
+        const currentInvoice = await tx.creditCardInvoice.findFirst({
+          where: { cardId, userId, isPaid: false },
+          orderBy: { paymentDate: 'asc' },
+        });
+        if (!currentInvoice) {
+          throw new UnprocessableEntityException(
+            'Nenhuma fatura aberta encontrada para este cartão',
+          );
+        }
+
+        const purchase = await tx.creditCardPurchase.findFirst({
+          where: { id: dto.purchaseId, userId, cardId },
+          include: {
+            installments: {
+              include: { invoice: true },
+              orderBy: { number: 'asc' },
+            },
+          },
+        });
+        if (!purchase)
+          throw new NotFoundException('Compra não encontrada neste cartão');
+
+        const eligible = purchase.installments.filter(
+          (i) =>
+            !i.isAnticipated &&
+            !i.invoice.isPaid &&
+            i.invoice.paymentDate > currentInvoice.paymentDate,
+        );
+
+        if (eligible.length === 0) {
+          throw new UnprocessableEntityException(
+            'Nenhuma parcela futura elegível para antecipação',
+          );
+        }
+        if (dto.installmentsCount > eligible.length) {
+          throw new BadRequestException(
+            `Quantidade solicitada (${dto.installmentsCount}) excede as parcelas disponíveis (${eligible.length})`,
+          );
+        }
+
+        const sorted = [...eligible].sort((a, b) => {
+          const diff =
+            b.invoice.paymentDate.getTime() - a.invoice.paymentDate.getTime();
+          return diff !== 0 ? diff : b.number - a.number;
+        });
+        const toAnticipate = sorted.slice(0, dto.installmentsCount);
+
+        const originalAmount =
+          Math.round(toAnticipate.reduce((sum, i) => sum + i.amount, 0) * 100) /
+          100;
+
+        if (dto.paidAmount > originalAmount + 0.005) {
+          throw new BadRequestException(
+            'O valor a pagar não pode ser maior que o valor original das parcelas',
+          );
+        }
+        const discount =
+          Math.round((originalAmount - dto.paidAmount) * 100) / 100;
+
+        const toAnticipateIds = toAnticipate.map((i) => i.id);
+        const affectedInvoiceIds = [
+          ...new Set(toAnticipate.map((i) => i.invoiceId)),
+        ];
+
         const advance = await tx.installmentAdvance.create({
           data: {
             purchaseId: dto.purchaseId,
@@ -375,12 +367,12 @@ export class CreditCardInvoicesService {
   }
 
   async revertAdvance(userId: string, advanceId: string) {
-    const advance = await this.prisma.installmentAdvance.findFirst({
-      where: { id: advanceId, userId },
-    });
-    if (!advance) throw new NotFoundException('Antecipação não encontrada');
+    return this.prisma.withUser(userId, async (tx) => {
+      const advance = await tx.installmentAdvance.findFirst({
+        where: { id: advanceId, userId },
+      });
+      if (!advance) throw new NotFoundException('Antecipação não encontrada');
 
-    return this.prisma.$transaction(async (tx) => {
       await tx.creditCardInstallment.updateMany({
         where: { advanceId },
         data: { isAnticipated: false, advanceId: null },
@@ -406,32 +398,28 @@ export class CreditCardInvoicesService {
   }
 
   async reopen(userId: string, id: string) {
-    const invoice = await this.findOne(userId, id);
-    if (!invoice.isPaid) {
-      throw new BadRequestException('Esta fatura ainda não foi paga');
-    }
-
-    // Intelligent rollback: a partial payment rolled the remainder into a new
-    // purchase, re-parceled into future invoices. If any of those future
-    // invoices have already been paid, their paid amount was based on a total
-    // that included those installments — reopening would leave them
-    // inconsistent, so block it until that invoice is reopened first.
-    if (invoice.remainderPurchases.length > 0) {
-      const allInstallments = await this.prisma.creditCardInstallment.findMany({
-        where: {
-          purchaseId: { in: invoice.remainderPurchases.map((p) => p.id) },
-        },
-        include: { invoice: true },
-      });
-      if (allInstallments.some((i) => i.invoice.isPaid)) {
-        throw new BadRequestException(
-          'Não é possível reabrir esta fatura: o saldo remanescente já foi processado em uma fatura que já está paga. Reabra primeiro essa fatura.',
-        );
-      }
-    }
-
-    return this.prisma.$transaction(
+    return this.prisma.withUser(
+      userId,
       async (tx) => {
+        const invoice = await this.findOneInTx(tx, userId, id);
+        if (!invoice.isPaid) {
+          throw new BadRequestException('Esta fatura ainda não foi paga');
+        }
+
+        if (invoice.remainderPurchases.length > 0) {
+          const allInstallments = await tx.creditCardInstallment.findMany({
+            where: {
+              purchaseId: { in: invoice.remainderPurchases.map((p) => p.id) },
+            },
+            include: { invoice: true },
+          });
+          if (allInstallments.some((i) => i.invoice.isPaid)) {
+            throw new BadRequestException(
+              'Não é possível reabrir esta fatura: o saldo remanescente já foi processado em uma fatura que já está paga. Reabra primeiro essa fatura.',
+            );
+          }
+        }
+
         await tx.creditCardInvoice.update({
           where: { id, userId },
           data: { isPaid: false, paidAmount: null, transactionId: null },
@@ -469,5 +457,29 @@ export class CreditCardInvoicesService {
       },
       { timeout: 15000 },
     );
+  }
+
+  private async findOneInTx(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    id: string,
+  ) {
+    const invoice = await tx.creditCardInvoice.findFirst({
+      where: { id, userId },
+      include: {
+        installments: { include: { purchase: true } },
+        advances: true,
+        transaction: true,
+        card: true,
+        remainderPurchases: true,
+      },
+    });
+
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    return {
+      ...invoice,
+      totalAmount: computeTotal(invoice.installments, invoice.advances),
+    };
   }
 }

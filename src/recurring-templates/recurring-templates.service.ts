@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRecurringTemplateDto } from './dto/create-recurring-template.dto';
 import { UpdateRecurringTemplateDto } from './dto/update-recurring-template.dto';
@@ -15,145 +16,138 @@ export class RecurringTemplatesService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(userId: string) {
-    const templates = await this.prisma.recurringTemplate.findMany({
-      where: { userId },
-      include: {
-        category: true,
-        _count: { select: { instances: { where: { isSkipped: false } } } },
-      },
-      orderBy: { dayOfMonth: 'asc' },
-    });
+    return this.prisma.withUser(userId, async (tx) => {
+      const templates = await tx.recurringTemplate.findMany({
+        where: { userId },
+        include: {
+          category: true,
+          _count: { select: { instances: { where: { isSkipped: false } } } },
+        },
+        orderBy: { dayOfMonth: 'asc' },
+      });
 
-    return templates.map(({ _count, ...t }) => ({
-      ...t,
-      occurrenceCount: _count.instances,
-    }));
+      return templates.map(({ _count, ...t }) => ({
+        ...t,
+        occurrenceCount: _count.instances,
+      }));
+    });
   }
 
   async create(userId: string, data: CreateRecurringTemplateDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { plan: true },
-    });
-
-    if (user?.plan === 'FREE') {
-      const count = await this.prisma.recurringTemplate.count({
-        where: { userId, isActive: true },
+    return this.prisma.withUser(userId, async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { plan: true },
       });
-      if (count >= FREE_LIMITS.recurringTemplates) {
-        throw new ForbiddenException(
-          `Plano gratuito permite até ${FREE_LIMITS.recurringTemplates} recorrentes ativos. Faça upgrade para o PRO.`,
-        );
-      }
-    }
 
-    return this.prisma.recurringTemplate.create({
-      data: { ...data, userId },
-      include: { category: true },
+      if (user?.plan === 'FREE') {
+        const count = await tx.recurringTemplate.count({
+          where: { userId, isActive: true },
+        });
+        if (count >= FREE_LIMITS.recurringTemplates) {
+          throw new ForbiddenException(
+            `Plano gratuito permite até ${FREE_LIMITS.recurringTemplates} recorrentes ativos. Faça upgrade para o PRO.`,
+          );
+        }
+      }
+
+      return tx.recurringTemplate.create({
+        data: { ...data, userId },
+        include: { category: true },
+      });
     });
   }
 
   async update(userId: string, id: string, data: UpdateRecurringTemplateDto) {
-    await this.findOne(userId, id);
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.findOne(tx, userId, id);
 
-    return this.prisma.recurringTemplate.update({
-      where: { id, userId },
-      data,
-      include: { category: true },
+      return tx.recurringTemplate.update({
+        where: { id, userId },
+        data,
+        include: { category: true },
+      });
     });
   }
 
   async remove(userId: string, id: string) {
-    await this.findOne(userId, id);
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.findOne(tx, userId, id);
 
-    return this.prisma.recurringTemplate.delete({
-      where: { id, userId },
+      return tx.recurringTemplate.delete({ where: { id, userId } });
     });
   }
 
   async realize(userId: string, id: string, data: RealizeRecurringTemplateDto) {
-    const template = await this.findOne(userId, id);
-    const date = new Date(data.date);
+    return this.prisma.withUser(userId, async (tx) => {
+      const template = await this.findOne(tx, userId, id);
+      const date = new Date(data.date);
 
-    const transaction = await this.prisma.transaction.upsert({
-      where: {
-        templateId_date: {
-          templateId: id,
+      const transaction = await tx.transaction.upsert({
+        where: { templateId_date: { templateId: id, date } },
+        create: {
+          description: template.description,
+          amount: data.amount,
+          type: template.type,
           date,
+          isPaid: data.isPaid ?? false,
+          templateId: id,
+          categoryId: template.categoryId,
+          userId,
         },
-      },
-      create: {
-        description: template.description,
-        amount: data.amount,
-        type: template.type,
-        date,
-        isPaid: data.isPaid ?? false,
-        templateId: id,
-        categoryId: template.categoryId,
-        userId,
-      },
-      update: {
-        amount: data.amount,
-        isPaid: data.isPaid ?? undefined,
-      },
-      include: {
-        category: true,
-      },
-    });
-
-    if (template.totalOccurrences) {
-      const realizedCount = await this.prisma.transaction.count({
-        where: { templateId: id, isSkipped: false },
+        update: {
+          amount: data.amount,
+          isPaid: data.isPaid ?? undefined,
+        },
+        include: { category: true },
       });
-      if (realizedCount >= template.totalOccurrences) {
-        await this.prisma.recurringTemplate.update({
-          where: { id, userId },
-          data: { isActive: false },
+
+      if (template.totalOccurrences) {
+        const realizedCount = await tx.transaction.count({
+          where: { templateId: id, isSkipped: false },
         });
+        if (realizedCount >= template.totalOccurrences) {
+          await tx.recurringTemplate.update({
+            where: { id, userId },
+            data: { isActive: false },
+          });
+        }
       }
-    }
 
-    return transaction;
-  }
-
-  // Marks (or creates) the instance for this templateId+date as "skipped":
-  // it stops generating a virtual estimate AND is hidden from balance totals,
-  // while remaining visible (as "Ignorado") so the user can reverse it later
-  // by deleting it (which restores the regular estimate behavior).
-  async skip(userId: string, id: string, data: SkipRecurringTemplateDto) {
-    const template = await this.findOne(userId, id);
-    const date = new Date(data.date);
-
-    return this.prisma.transaction.upsert({
-      where: {
-        templateId_date: {
-          templateId: id,
-          date,
-        },
-      },
-      create: {
-        description: template.description,
-        amount: template.estimatedAmount,
-        type: template.type,
-        date,
-        isPaid: false,
-        isSkipped: true,
-        templateId: id,
-        categoryId: template.categoryId,
-        userId,
-      },
-      update: {
-        isSkipped: true,
-        isPaid: false,
-      },
-      include: {
-        category: true,
-      },
+      return transaction;
     });
   }
 
-  private async findOne(userId: string, id: string) {
-    const template = await this.prisma.recurringTemplate.findFirst({
+  async skip(userId: string, id: string, data: SkipRecurringTemplateDto) {
+    return this.prisma.withUser(userId, async (tx) => {
+      const template = await this.findOne(tx, userId, id);
+      const date = new Date(data.date);
+
+      return tx.transaction.upsert({
+        where: { templateId_date: { templateId: id, date } },
+        create: {
+          description: template.description,
+          amount: template.estimatedAmount,
+          type: template.type,
+          date,
+          isPaid: false,
+          isSkipped: true,
+          templateId: id,
+          categoryId: template.categoryId,
+          userId,
+        },
+        update: { isSkipped: true, isPaid: false },
+        include: { category: true },
+      });
+    });
+  }
+
+  private async findOne(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    id: string,
+  ) {
+    const template = await tx.recurringTemplate.findFirst({
       where: { id, userId },
     });
 

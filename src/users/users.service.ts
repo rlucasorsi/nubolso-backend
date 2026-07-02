@@ -32,7 +32,8 @@ export class UsersService {
   }
 
   async deleteAccount(id: string): Promise<void> {
-    await this.prisma.$transaction(
+    await this.prisma.withUser(
+      id,
       async (tx) => {
         // Null out FK references that lack cascade before deleting the targets
         await tx.creditCardInstallment.updateMany({
@@ -68,32 +69,34 @@ export class UsersService {
   }
 
   async exportData(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        transactions: { include: { category: true } },
-        recurringTemplates: true,
-        categories: true,
-        goals: true,
-        creditCards: {
-          include: {
-            invoices: {
-              include: {
-                installments: { include: { purchase: true } },
-                advances: true,
+    return this.prisma.withUser(id, async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id },
+        include: {
+          transactions: { include: { category: true } },
+          recurringTemplates: true,
+          categories: true,
+          goals: true,
+          creditCards: {
+            include: {
+              invoices: {
+                include: {
+                  installments: { include: { purchase: true } },
+                  advances: true,
+                },
               },
             },
           },
+          importBatches: true,
         },
-        importBatches: true,
-      },
+      });
+
+      if (!user) return null;
+
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { passwordHash, verificationCode, passwordResetCode, ...safeUser } =
+        user;
+      return { exportedAt: new Date().toISOString(), ...safeUser };
     });
-
-    if (!user) return null;
-
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { passwordHash, verificationCode, passwordResetCode, ...safeUser } =
-      user;
-    return { exportedAt: new Date().toISOString(), ...safeUser };
   }
 }

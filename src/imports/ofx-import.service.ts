@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseOfx } from './ofx-parser.util';
 import { findFuzzyMatch } from './fuzzy-match.util';
@@ -40,17 +41,8 @@ export class OfxImportService {
   constructor(private readonly prisma: PrismaService) {}
 
   async upload(userId: string, file: Express.Multer.File | undefined) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { plan: true },
-    });
-
-    if (user?.plan === 'FREE') {
-      throw new ForbiddenException(
-        'Importação de extratos OFX é um recurso exclusivo do plano PRO. Faça upgrade para utilizar.',
-      );
-    }
-
+    // File validation and OFX parsing happen before the DB transaction to avoid
+    // holding a connection while doing CPU-bound work.
     this.validateFile(file);
 
     let parsed: ReturnType<typeof parseOfx>;
@@ -72,130 +64,167 @@ export class OfxImportService {
       );
     }
 
-    await this.validateAccountBinding(userId, parsed.bankId, parsed.acctId);
+    return this.prisma.withUser(
+      userId,
+      async (tx) => {
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { plan: true },
+        });
 
-    const fitIds = parsed.transactions
-      .map((t) => t.fitId)
-      .filter((id): id is string => !!id);
-    const existingFitIds = new Set(
-      await this.findExistingFitIds(userId, fitIds),
-    );
+        if (user?.plan === 'FREE') {
+          throw new ForbiddenException(
+            'Importação de extratos OFX é um recurso exclusivo do plano PRO. Faça upgrade para utilizar.',
+          );
+        }
 
-    // Janela de busca limitada ao período do extrato (±FUZZY_WINDOW_DAYS) em
-    // vez de toda a história do usuário: mantém o matching difuso em O(n)
-    // sobre um conjunto pequeno, mesmo para contas com anos de lançamentos.
-    const { minDate, maxDate } = this.dateRangeWithMargin(parsed.transactions);
-    const manualTransactions = await this.prisma.transaction.findMany({
-      where: { userId, fitId: null, date: { gte: minDate, lte: maxDate } },
-      select: { id: true, amount: true, date: true, description: true },
-    });
+        await this.validateAccountBinding(
+          tx,
+          userId,
+          parsed.bankId,
+          parsed.acctId,
+        );
 
-    let newCount = 0;
-    let duplicateExactCount = 0;
-    let possibleDuplicateCount = 0;
+        const fitIds = parsed.transactions
+          .map((t) => t.fitId)
+          .filter((id): id is string => !!id);
+        const existingFitIds = new Set(
+          await this.findExistingFitIds(tx, userId, fitIds),
+        );
 
-    const itemsData = parsed.transactions.map((t) => {
-      if (t.fitId && existingFitIds.has(t.fitId)) {
-        duplicateExactCount++;
-        return {
-          fitId: t.fitId,
-          description: t.description,
-          amount: t.amount,
-          type: t.type,
-          date: t.date,
-          status: 'DUPLICATE_EXACT' as const,
-          matchedTransactionId: null,
-          similarityScore: null,
-          decision: 'SKIP' as const,
-        };
-      }
+        // Janela de busca limitada ao período do extrato (±FUZZY_WINDOW_DAYS) em
+        // vez de toda a história do usuário: mantém o matching difuso em O(n)
+        // sobre um conjunto pequeno, mesmo para contas com anos de lançamentos.
+        const { minDate, maxDate } = this.dateRangeWithMargin(
+          parsed.transactions,
+        );
+        const manualTransactions = await tx.transaction.findMany({
+          where: { userId, fitId: null, date: { gte: minDate, lte: maxDate } },
+          select: { id: true, amount: true, date: true, description: true },
+        });
 
-      const match = findFuzzyMatch(t, manualTransactions);
-      if (match) {
-        possibleDuplicateCount++;
-        return {
-          fitId: t.fitId,
-          description: t.description,
-          amount: t.amount,
-          type: t.type,
-          date: t.date,
-          status: 'POSSIBLE_DUPLICATE' as const,
-          matchedTransactionId: match.id,
-          similarityScore: match.similarityScore,
-          decision: 'SKIP' as const,
-        };
-      }
+        let newCount = 0;
+        let duplicateExactCount = 0;
+        let possibleDuplicateCount = 0;
 
-      newCount++;
-      return {
-        fitId: t.fitId,
-        description: t.description,
-        amount: t.amount,
-        type: t.type,
-        date: t.date,
-        status: 'NEW' as const,
-        matchedTransactionId: null,
-        similarityScore: null,
-        decision: 'IMPORT' as const,
-      };
-    });
+        const itemsData = parsed.transactions.map((t) => {
+          if (t.fitId && existingFitIds.has(t.fitId)) {
+            duplicateExactCount++;
+            return {
+              fitId: t.fitId,
+              description: t.description,
+              amount: t.amount,
+              type: t.type,
+              date: t.date,
+              status: 'DUPLICATE_EXACT' as const,
+              matchedTransactionId: null,
+              similarityScore: null,
+              decision: 'SKIP' as const,
+            };
+          }
 
-    const batch = await this.prisma.importBatch.create({
-      data: {
-        userId,
-        fileName: file!.originalname,
-        bankId: parsed.bankId,
-        acctId: parsed.acctId,
-        status: 'PENDING_REVIEW',
-        totalCount: parsed.transactions.length,
-        newCount,
-        duplicateExactCount,
-        possibleDuplicateCount,
+          const match = findFuzzyMatch(t, manualTransactions);
+          if (match) {
+            possibleDuplicateCount++;
+            return {
+              fitId: t.fitId,
+              description: t.description,
+              amount: t.amount,
+              type: t.type,
+              date: t.date,
+              status: 'POSSIBLE_DUPLICATE' as const,
+              matchedTransactionId: match.id,
+              similarityScore: match.similarityScore,
+              decision: 'SKIP' as const,
+            };
+          }
+
+          newCount++;
+          return {
+            fitId: t.fitId,
+            description: t.description,
+            amount: t.amount,
+            type: t.type,
+            date: t.date,
+            status: 'NEW' as const,
+            matchedTransactionId: null,
+            similarityScore: null,
+            decision: 'IMPORT' as const,
+          };
+        });
+
+        const batch = await tx.importBatch.create({
+          data: {
+            userId,
+            fileName: file!.originalname,
+            bankId: parsed.bankId,
+            acctId: parsed.acctId,
+            status: 'PENDING_REVIEW',
+            totalCount: parsed.transactions.length,
+            newCount,
+            duplicateExactCount,
+            possibleDuplicateCount,
+          },
+        });
+
+        for (const itemsChunk of chunk(itemsData, DB_CHUNK_SIZE)) {
+          await tx.importBatchItem.createMany({
+            data: itemsChunk.map((item) => ({ ...item, batchId: batch.id })),
+          });
+        }
+
+        const batchWithItems = await this.findBatchOrThrow(
+          tx,
+          userId,
+          batch.id,
+        );
+        return { ...batchWithItems, parseErrors: parsed.errors };
       },
-    });
-
-    for (const itemsChunk of chunk(itemsData, DB_CHUNK_SIZE)) {
-      await this.prisma.importBatchItem.createMany({
-        data: itemsChunk.map((item) => ({ ...item, batchId: batch.id })),
-      });
-    }
-
-    const batchWithItems = await this.findBatchOrThrow(userId, batch.id);
-    return { ...batchWithItems, parseErrors: parsed.errors };
+      BATCH_TRANSACTION_OPTIONS,
+    );
   }
 
   async findAllBatches(userId: string) {
-    return this.prisma.importBatch.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    return this.prisma.withUser(userId, (tx) =>
+      tx.importBatch.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+      }),
+    );
   }
 
   async findBatchDetail(userId: string, batchId: string) {
-    const batch = await this.findBatchOrThrow(userId, batchId);
+    return this.prisma.withUser(userId, async (tx) => {
+      const batch = await this.findBatchOrThrow(tx, userId, batchId);
 
-    const matchedIds = batch.items
-      .map((i) => i.matchedTransactionId)
-      .filter((id): id is string => !!id);
+      const matchedIds = batch.items
+        .map((i) => i.matchedTransactionId)
+        .filter((id): id is string => !!id);
 
-    const matchedTransactions = matchedIds.length
-      ? await this.prisma.transaction.findMany({
-          where: { id: { in: matchedIds } },
-          select: { id: true, description: true, amount: true, date: true },
-        })
-      : [];
+      const matchedTransactions = matchedIds.length
+        ? await tx.transaction.findMany({
+            where: { id: { in: matchedIds }, userId },
+            select: {
+              id: true,
+              description: true,
+              amount: true,
+              date: true,
+            },
+          })
+        : [];
 
-    const matchedById = new Map(matchedTransactions.map((t) => [t.id, t]));
+      const matchedById = new Map(matchedTransactions.map((t) => [t.id, t]));
 
-    return {
-      ...batch,
-      items: batch.items.map((item) => ({
-        ...item,
-        matchedTransaction: item.matchedTransactionId
-          ? (matchedById.get(item.matchedTransactionId) ?? null)
-          : null,
-      })),
-    };
+      return {
+        ...batch,
+        items: batch.items.map((item) => ({
+          ...item,
+          matchedTransaction: item.matchedTransactionId
+            ? (matchedById.get(item.matchedTransactionId) ?? null)
+            : null,
+        })),
+      };
+    });
   }
 
   async confirm(
@@ -203,85 +232,96 @@ export class OfxImportService {
     batchId: string,
     decisions: ConfirmImportDto['decisions'],
   ) {
-    const batch = await this.findBatchOrThrow(userId, batchId);
+    return this.prisma.withUser(
+      userId,
+      async (tx) => {
+        const batch = await this.findBatchOrThrow(tx, userId, batchId);
 
-    if (batch.status !== 'PENDING_REVIEW') {
-      throw new BadRequestException('Este lote já foi processado');
-    }
+        if (batch.status !== 'PENDING_REVIEW') {
+          throw new BadRequestException('Este lote já foi processado');
+        }
 
-    const decisionMap = new Map(decisions.map((d) => [d.itemId, d.action]));
+        const decisionMap = new Map(decisions.map((d) => [d.itemId, d.action]));
 
-    const toImport = batch.items.filter((item) => {
-      if (item.status === 'DUPLICATE_EXACT') return false;
-      const action = decisionMap.get(item.id) ?? item.decision ?? 'SKIP';
-      return action === 'IMPORT';
-    });
-
-    return this.prisma.$transaction(async (tx) => {
-      let importedCount = 0;
-
-      for (const itemsChunk of chunk(toImport, DB_CHUNK_SIZE)) {
-        const result = await tx.transaction.createMany({
-          data: itemsChunk.map((item) => ({
-            description: item.description,
-            amount: item.amount,
-            type: item.type,
-            date: item.date,
-            isPaid: true,
-            userId,
-            fitId: item.fitId,
-            importBatchId: batch.id,
-          })),
-          skipDuplicates: true,
+        const toImport = batch.items.filter((item) => {
+          if (item.status === 'DUPLICATE_EXACT') return false;
+          const action = decisionMap.get(item.id) ?? item.decision ?? 'SKIP';
+          return action === 'IMPORT';
         });
-        importedCount += result.count;
-      }
 
-      return tx.importBatch.update({
-        where: { id: batch.id, userId },
-        data: { status: 'CONFIRMED', importedCount, confirmedAt: new Date() },
-        include: { items: true },
-      });
-    }, BATCH_TRANSACTION_OPTIONS);
+        let importedCount = 0;
+
+        for (const itemsChunk of chunk(toImport, DB_CHUNK_SIZE)) {
+          const result = await tx.transaction.createMany({
+            data: itemsChunk.map((item) => ({
+              description: item.description,
+              amount: item.amount,
+              type: item.type,
+              date: item.date,
+              isPaid: true,
+              userId,
+              fitId: item.fitId,
+              importBatchId: batch.id,
+            })),
+            skipDuplicates: true,
+          });
+          importedCount += result.count;
+        }
+
+        return tx.importBatch.update({
+          where: { id: batch.id, userId },
+          data: { status: 'CONFIRMED', importedCount, confirmedAt: new Date() },
+          include: { items: true },
+        });
+      },
+      BATCH_TRANSACTION_OPTIONS,
+    );
   }
 
   async rollback(userId: string, batchId: string) {
-    const batch = await this.findBatchOrThrow(userId, batchId);
+    return this.prisma.withUser(
+      userId,
+      async (tx) => {
+        const batch = await this.findBatchOrThrow(tx, userId, batchId);
 
-    if (batch.status !== 'CONFIRMED') {
-      throw new BadRequestException(
-        'Apenas lotes confirmados podem ser desfeitos',
-      );
-    }
+        if (batch.status !== 'CONFIRMED') {
+          throw new BadRequestException(
+            'Apenas lotes confirmados podem ser desfeitos',
+          );
+        }
 
-    return this.prisma.$transaction(async (tx) => {
-      await tx.transaction.deleteMany({
-        where: { importBatchId: batchId, userId },
-      });
+        await tx.transaction.deleteMany({
+          where: { importBatchId: batchId, userId },
+        });
 
-      return tx.importBatch.update({
-        where: { id: batchId, userId },
-        data: { status: 'ROLLED_BACK', importedCount: 0 },
-      });
-    }, BATCH_TRANSACTION_OPTIONS);
+        return tx.importBatch.update({
+          where: { id: batchId, userId },
+          data: { status: 'ROLLED_BACK', importedCount: 0 },
+        });
+      },
+      BATCH_TRANSACTION_OPTIONS,
+    );
   }
 
   async cancel(userId: string, batchId: string) {
-    const batch = await this.findBatchOrThrow(userId, batchId);
+    return this.prisma.withUser(userId, async (tx) => {
+      const batch = await this.findBatchOrThrow(tx, userId, batchId);
 
-    if (batch.status !== 'PENDING_REVIEW') {
-      throw new BadRequestException(
-        'Apenas lotes pendentes de revisão podem ser cancelados',
-      );
-    }
+      if (batch.status !== 'PENDING_REVIEW') {
+        throw new BadRequestException(
+          'Apenas lotes pendentes de revisão podem ser cancelados',
+        );
+      }
 
-    return this.prisma.importBatch.update({
-      where: { id: batchId, userId },
-      data: { status: 'CANCELED' },
+      return tx.importBatch.update({
+        where: { id: batchId, userId },
+        data: { status: 'CANCELED' },
+      });
     });
   }
 
   private async findExistingFitIds(
+    tx: Prisma.TransactionClient,
     userId: string,
     fitIds: string[],
   ): Promise<string[]> {
@@ -289,7 +329,7 @@ export class OfxImportService {
 
     const results = await Promise.all(
       chunk(fitIds, DB_CHUNK_SIZE).map((idsChunk) =>
-        this.prisma.transaction.findMany({
+        tx.transaction.findMany({
           where: { userId, fitId: { in: idsChunk } },
           select: { fitId: true },
         }),
@@ -311,8 +351,12 @@ export class OfxImportService {
     };
   }
 
-  private async findBatchOrThrow(userId: string, batchId: string) {
-    const batch = await this.prisma.importBatch.findFirst({
+  private async findBatchOrThrow(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    batchId: string,
+  ) {
+    const batch = await tx.importBatch.findFirst({
       where: { id: batchId, userId },
       include: { items: true },
     });
@@ -339,19 +383,20 @@ export class OfxImportService {
   }
 
   private async validateAccountBinding(
+    tx: Prisma.TransactionClient,
     userId: string,
     bankId: string | null,
     acctId: string | null,
   ): Promise<void> {
     if (!acctId) return;
 
-    const user = await this.prisma.user.findUnique({
+    const user = await tx.user.findUnique({
       where: { id: userId },
       select: { ofxBankId: true, ofxAcctId: true },
     });
 
     if (!user?.ofxAcctId) {
-      await this.prisma.user.update({
+      await tx.user.update({
         where: { id: userId },
         data: { ofxBankId: bankId, ofxAcctId: acctId },
       });

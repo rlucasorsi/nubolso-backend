@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
@@ -28,60 +29,102 @@ export class TransactionsService {
 
     const skip = (page - 1) * limit;
 
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.transaction.findMany({
-        where,
-        include: { category: true },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-        skip,
-        take: limit,
-      }),
-      this.prisma.transaction.count({ where }),
-    ]);
+    return this.prisma.withUser(userId, async (tx) => {
+      const [data, total] = await Promise.all([
+        tx.transaction.findMany({
+          where,
+          include: { category: true },
+          orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+          skip,
+          take: limit,
+        }),
+        tx.transaction.count({ where }),
+      ]);
 
-    return { data, total, page, limit, hasMore: skip + data.length < total };
+      return { data, total, page, limit, hasMore: skip + data.length < total };
+    });
   }
 
   async create(userId: string, data: CreateTransactionDto) {
-    await this.validateDate(userId, data.date);
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.validateDate(tx, userId, data.date);
 
-    return this.prisma.transaction.create({
-      data: {
-        description: data.description ?? '',
-        amount: data.amount,
-        type: data.type,
-        date: new Date(data.date),
-        isPaid: data.isPaid ?? false,
-        userId,
-        categoryId: data.categoryId,
-      },
-      include: {
-        category: true,
-      },
+      return tx.transaction.create({
+        data: {
+          description: data.description ?? '',
+          amount: data.amount,
+          type: data.type,
+          date: new Date(data.date),
+          isPaid: data.isPaid ?? false,
+          userId,
+          categoryId: data.categoryId,
+        },
+        include: { category: true },
+      });
     });
   }
 
   async update(userId: string, id: string, data: UpdateTransactionDto) {
-    await this.findOne(userId, id);
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.findOne(tx, userId, id);
 
-    if (data.date) {
-      await this.validateDate(userId, data.date);
-    }
+      if (data.date) {
+        await this.validateDate(tx, userId, data.date);
+      }
 
-    return this.prisma.transaction.update({
-      where: { id, userId },
-      data: {
-        ...data,
-        date: data.date ? new Date(data.date) : undefined,
-      },
-      include: {
-        category: true,
-      },
+      return tx.transaction.update({
+        where: { id, userId },
+        data: {
+          ...data,
+          date: data.date ? new Date(data.date) : undefined,
+        },
+        include: { category: true },
+      });
     });
   }
 
-  private async validateDate(userId: string, date: string) {
-    const user = await this.prisma.user.findUnique({
+  async togglePaid(userId: string, id: string) {
+    return this.prisma.withUser(userId, async (tx) => {
+      const transaction = await this.findOne(tx, userId, id);
+
+      return tx.transaction.update({
+        where: { id, userId },
+        data: { isPaid: !transaction.isPaid },
+        include: { category: true },
+      });
+    });
+  }
+
+  async remove(userId: string, id: string) {
+    return this.prisma.withUser(userId, async (tx) => {
+      await this.findOne(tx, userId, id);
+
+      return tx.transaction.delete({ where: { id, userId } });
+    });
+  }
+
+  private async findOne(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    id: string,
+  ) {
+    const transaction = await tx.transaction.findFirst({
+      where: { id, userId },
+    });
+
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    return transaction;
+  }
+
+  private async validateDate(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    date: string,
+  ) {
+    const user = await tx.user.findUnique({
       where: { id: userId },
       select: { balanceStartDate: true },
     });
@@ -91,37 +134,5 @@ export class TransactionsService {
         'A data do lançamento não pode ser anterior à data inicial do saldo',
       );
     }
-  }
-
-  async togglePaid(userId: string, id: string) {
-    const transaction = await this.findOne(userId, id);
-
-    return this.prisma.transaction.update({
-      where: { id, userId },
-      data: { isPaid: !transaction.isPaid },
-      include: {
-        category: true,
-      },
-    });
-  }
-
-  async remove(userId: string, id: string) {
-    await this.findOne(userId, id);
-
-    return this.prisma.transaction.delete({
-      where: { id, userId },
-    });
-  }
-
-  private async findOne(userId: string, id: string) {
-    const transaction = await this.prisma.transaction.findFirst({
-      where: { id, userId },
-    });
-
-    if (!transaction) {
-      throw new NotFoundException('Transaction not found');
-    }
-
-    return transaction;
   }
 }
