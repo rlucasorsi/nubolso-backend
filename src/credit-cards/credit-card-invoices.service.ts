@@ -81,7 +81,11 @@ export class CreditCardInvoicesService {
           },
         },
         include: {
-          installments: true,
+          // purchase.templateId permite ao frontend saber quais recorrentes de
+          // cartão já foram materializados em cada fatura (dedupe da projeção)
+          installments: {
+            include: { purchase: { select: { templateId: true } } },
+          },
           advances: true,
           transaction: true,
           card: true,

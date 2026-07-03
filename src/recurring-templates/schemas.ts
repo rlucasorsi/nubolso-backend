@@ -18,11 +18,15 @@ export const createRecurringTemplateSchema = z
     type: transactionType,
     dayOfMonth: z.number().int().min(1).max(31),
     categoryId: z.string().uuid().optional(),
+    creditCardId: z.string().uuid().optional(),
     endDate: isoDate.optional(),
     totalOccurrences: z.number().int().positive().optional(),
   })
   .refine(endConditionRefine, {
     message: 'Informe apenas data final ou número de ocorrências, não ambos',
+  })
+  .refine((data) => !(data.creditCardId && data.type === 'INCOME'), {
+    message: 'Recorrentes de receita não podem ser vinculados a cartão',
   });
 
 export const updateRecurringTemplateSchema = z
@@ -32,6 +36,7 @@ export const updateRecurringTemplateSchema = z
     type: transactionType.optional(),
     dayOfMonth: z.number().int().min(1).max(31).optional(),
     categoryId: z.string().uuid().optional(),
+    creditCardId: z.string().uuid().optional().nullable(),
     isActive: z.boolean().optional(),
     endDate: isoDate.optional().nullable(),
     totalOccurrences: z.number().int().positive().optional().nullable(),

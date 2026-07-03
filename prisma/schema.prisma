@@ -59,12 +59,18 @@ model RecurringTemplate {
   userId           String
   endDate          DateTime?
   totalOccurrences Int?
+  // Vinculado a um cartão: "realizar" cria uma CreditCardPurchase na fatura
+  // do ciclo em vez de uma Transaction avulsa.
+  creditCardId     String?
+  creditCard       CreditCard?     @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
   category         Category?       @relation(fields: [categoryId], references: [id])
   user             User            @relation(fields: [userId], references: [id])
   createdAt        DateTime        @default(now())
   instances        Transaction[]
+  purchases        CreditCardPurchase[]
 
   @@index([userId])
+  @@index([creditCardId])
 }
 
 model Category {
@@ -164,8 +170,9 @@ model CreditCard {
   user       User     @relation(fields: [userId], references: [id])
   createdAt  DateTime @default(now())
 
-  purchases CreditCardPurchase[]
-  invoices  CreditCardInvoice[]
+  purchases          CreditCardPurchase[]
+  invoices           CreditCardInvoice[]
+  recurringTemplates RecurringTemplate[]
 
   @@index([userId])
 }
@@ -185,12 +192,19 @@ model CreditCardPurchase {
   originInvoiceId String?
   originInvoice   CreditCardInvoice? @relation("PurchaseOrigin", fields: [originInvoiceId], references: [id])
 
+  // Compra materializada a partir de um recorrente de cartão; (templateId, purchaseDate)
+  // é único para deduplicar o realize, espelhando Transaction @@unique([templateId, date]).
+  templateId String?
+  template   RecurringTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
   createdAt    DateTime @default(now())
   installments CreditCardInstallment[]
   advances     InstallmentAdvance[]
 
+  @@unique([templateId, purchaseDate])
   @@index([userId])
   @@index([cardId])
+  @@index([templateId])
 }
 
 model CreditCardInstallment {
