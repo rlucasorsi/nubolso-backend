@@ -33,7 +33,11 @@ export const updateGoalSchema = z.object({
 });
 
 export const createContributionSchema = z.object({
-  amount: z.number().positive('Valor deve ser positivo'),
+  // Aportes usam valor positivo e retiradas usam valor negativo (mesmo endpoint);
+  // apenas zero é inválido.
+  amount: z
+    .number()
+    .refine((n) => n !== 0, { message: 'Valor não pode ser zero' }),
   description: z.string().optional(),
   date: isoDate.optional(),
 });

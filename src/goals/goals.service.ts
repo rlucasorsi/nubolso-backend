@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -112,6 +113,13 @@ export class GoalsService {
   ) {
     return this.prisma.withUser(userId, async (tx) => {
       const goal = await this.findOne(tx, userId, id);
+
+      // Retirada (valor negativo) não pode ser maior que o saldo atual da meta.
+      if (data.amount < 0 && Math.abs(data.amount) > goal.savedAmount) {
+        throw new BadRequestException(
+          'O valor da retirada não pode ser maior que o saldo da meta',
+        );
+      }
 
       await tx.goalContribution.create({
         data: {
