@@ -91,6 +91,8 @@ model Transaction {
   description String
   amount      Float
   type        TransactionType
+  // Só preenchido para despesas (type = EXPENSE); null caso contrário.
+  tipoDespesa ExpenseType?
   date        DateTime
   isPaid      Boolean            @default(false)
   isSkipped   Boolean            @default(false)
@@ -122,7 +124,14 @@ model Transaction {
 enum TransactionType {
   INCOME
   EXPENSE
-  SPENDING
+  INVESTMENT
+}
+
+// Classificação adicional de despesas. Só faz sentido quando type = EXPENSE;
+// para os demais tipos permanece null.
+enum ExpenseType {
+  fixa
+  variavel
 }
 
 enum Plan {

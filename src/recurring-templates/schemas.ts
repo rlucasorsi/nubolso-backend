@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const transactionType = z.enum(['INCOME', 'EXPENSE', 'SPENDING']);
+const transactionType = z.enum(['INCOME', 'EXPENSE', 'INVESTMENT']);
 const isoDate = z
   .string()
   .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' })

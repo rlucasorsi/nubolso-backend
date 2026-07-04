@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-const transactionType = z.enum(['INCOME', 'EXPENSE', 'SPENDING']);
+const transactionType = z.enum(['INCOME', 'EXPENSE', 'INVESTMENT']);
+const expenseType = z.enum(['fixa', 'variavel']);
 const isoDate = z
   .string()
   .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
@@ -9,6 +10,8 @@ export const createTransactionSchema = z.object({
   description: z.string().optional(),
   amount: z.number().positive('Valor deve ser positivo'),
   type: transactionType,
+  // Só se aplica a despesas; o service força null para os demais tipos.
+  tipoDespesa: expenseType.nullable().optional(),
   date: isoDate,
   isPaid: z.boolean().optional(),
   categoryId: z.string().uuid('categoryId inválido').optional(),
@@ -18,6 +21,7 @@ export const updateTransactionSchema = z.object({
   description: z.string().min(1).optional(),
   amount: z.number().positive().optional(),
   type: transactionType.optional(),
+  tipoDespesa: expenseType.nullable().optional(),
   date: isoDate.optional(),
   isPaid: z.boolean().optional(),
   categoryId: z.string().uuid().optional(),
@@ -27,6 +31,8 @@ export const queryTransactionSchema = z.object({
   startDate: isoDate.optional(),
   endDate: isoDate.optional(),
   type: transactionType.optional(),
+  // 'none' filtra despesas sem classificação (tipoDespesa nulo).
+  tipoDespesa: z.enum(['fixa', 'variavel', 'none']).optional(),
   categoryId: z.string().uuid().optional(),
   isPaid: z
     .preprocess((val) => {

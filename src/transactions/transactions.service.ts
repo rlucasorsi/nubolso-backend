@@ -14,9 +14,18 @@ export class TransactionsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(userId: string, query: QueryTransactionDto) {
-    const { startDate, endDate, type, categoryId, isPaid, page, limit } = query;
+    const {
+      startDate,
+      endDate,
+      type,
+      tipoDespesa,
+      categoryId,
+      isPaid,
+      page,
+      limit,
+    } = query;
 
-    const where = {
+    const where: Prisma.TransactionWhereInput = {
       userId,
       type,
       categoryId,
@@ -26,6 +35,13 @@ export class TransactionsService {
         lte: endDate ? new Date(endDate) : undefined,
       },
     };
+
+    // O filtro por tipo de despesa só se aplica a despesas: 'none' = sem
+    // classificação (nulo), fixa/variavel = igualdade.
+    if (tipoDespesa) {
+      where.type = 'EXPENSE';
+      where.tipoDespesa = tipoDespesa === 'none' ? null : tipoDespesa;
+    }
 
     const skip = (page - 1) * limit;
 
@@ -54,6 +70,9 @@ export class TransactionsService {
           description: data.description ?? '',
           amount: data.amount,
           type: data.type,
+          // Classificação só vale para despesas; demais tipos ficam null.
+          tipoDespesa:
+            data.type === 'EXPENSE' ? (data.tipoDespesa ?? null) : null,
           date: new Date(data.date),
           isPaid: data.isPaid ?? false,
           userId,
@@ -66,16 +85,22 @@ export class TransactionsService {
 
   async update(userId: string, id: string, data: UpdateTransactionDto) {
     return this.prisma.withUser(userId, async (tx) => {
-      await this.findOne(tx, userId, id);
+      const existing = await this.findOne(tx, userId, id);
 
       if (data.date) {
         await this.validateDate(tx, userId, data.date);
       }
 
+      // Resolve tipoDespesa contra o tipo efetivo pós-update: se não for despesa,
+      // zera; se for, aplica o valor enviado (undefined = mantém o atual).
+      const effectiveType = data.type ?? existing.type;
+      const tipoDespesa = effectiveType === 'EXPENSE' ? data.tipoDespesa : null;
+
       return tx.transaction.update({
         where: { id, userId },
         data: {
           ...data,
+          tipoDespesa,
           date: data.date ? new Date(data.date) : undefined,
         },
         include: { category: true },
