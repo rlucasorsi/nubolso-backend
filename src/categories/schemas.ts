@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const transactionType = z.enum(['INCOME', 'EXPENSE', 'INVESTMENT']);
+
 const hexColor = z
   .string()
   .regex(
@@ -9,6 +11,7 @@ const hexColor = z
 
 export const createCategorySchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório'),
+  type: transactionType,
   color: hexColor.optional(),
   icon: z.string().max(50).optional(),
   includeInBalanceBase: z.boolean().optional(),
@@ -16,6 +19,7 @@ export const createCategorySchema = z.object({
 
 export const updateCategorySchema = z.object({
   name: z.string().min(1).optional(),
+  type: transactionType.optional(),
   color: hexColor.optional(),
   icon: z.string().max(50).optional(),
   includeInBalanceBase: z.boolean().optional(),
