@@ -74,14 +74,18 @@ model RecurringTemplate {
 }
 
 model Category {
-  id                 String              @id @default(uuid())
-  name               String
-  color              String?
-  type               TransactionType
-  userId             String
-  user               User                @relation(fields: [userId], references: [id])
-  transactions       Transaction[]
-  recurringTemplates RecurringTemplate[]
+  id                   String              @id @default(uuid())
+  name                 String
+  color                String?
+  icon                 String?
+  isDefault            Boolean             @default(false)
+  // Se true, entradas com esta categoria contam como "entrada válida" no cálculo
+  // do percentual de despesas sobre entradas (transferências ficam false).
+  includeInBalanceBase Boolean             @default(true)
+  userId               String
+  user                 User                @relation(fields: [userId], references: [id])
+  transactions         Transaction[]
+  recurringTemplates   RecurringTemplate[]
 
   @@index([userId])
 }

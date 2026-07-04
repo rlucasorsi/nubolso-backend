@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { User, Prisma } from '@prisma/client';
+import { DEFAULT_CATEGORIES } from '../categories/default-categories';
 
 @Injectable()
 export class UsersService {
@@ -19,9 +20,18 @@ export class UsersService {
   }
 
   async create(data: Prisma.UserCreateInput): Promise<User> {
-    return this.prisma.user.create({
-      data,
-    });
+    const user = await this.prisma.user.create({ data });
+    // Todo novo usuário nasce com as categorias padrão (registro e Google passam por aqui).
+    await this.prisma.withUser(user.id, (tx) =>
+      tx.category.createMany({
+        data: DEFAULT_CATEGORIES.map((c) => ({
+          ...c,
+          isDefault: true,
+          userId: user.id,
+        })),
+      }),
+    );
+    return user;
   }
 
   async update(id: string, data: Prisma.UserUpdateInput): Promise<User> {
