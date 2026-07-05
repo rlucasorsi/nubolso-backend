@@ -27,6 +27,7 @@ export const createPurchaseSchema = z.object({
   installmentsCount: z.number().int().min(1).max(48),
   purchaseDate: isoDate,
   strategy: z.enum(['FIRST', 'LAST']).optional().default('LAST'),
+  categoryId: z.string().uuid('categoryId inválido').optional(),
 });
 
 export const payInvoiceSchema = z.object({

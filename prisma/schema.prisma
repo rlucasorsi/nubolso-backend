@@ -49,12 +49,12 @@ model User {
 }
 
 model RecurringTemplate {
-  id               String          @id @default(uuid())
+  id               String               @id @default(uuid())
   description      String
   estimatedAmount  Float
   type             TransactionType
   dayOfMonth       Int
-  isActive         Boolean         @default(true)
+  isActive         Boolean              @default(true)
   categoryId       String?
   userId           String
   endDate          DateTime?
@@ -62,10 +62,10 @@ model RecurringTemplate {
   // Vinculado a um cartão: "realizar" cria uma CreditCardPurchase na fatura
   // do ciclo em vez de uma Transaction avulsa.
   creditCardId     String?
-  creditCard       CreditCard?     @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
-  category         Category?       @relation(fields: [categoryId], references: [id])
-  user             User            @relation(fields: [userId], references: [id])
-  createdAt        DateTime        @default(now())
+  creditCard       CreditCard?          @relation(fields: [creditCardId], references: [id], onDelete: SetNull)
+  category         Category?            @relation(fields: [categoryId], references: [id])
+  user             User                 @relation(fields: [userId], references: [id])
+  createdAt        DateTime             @default(now())
   instances        Transaction[]
   purchases        CreditCardPurchase[]
 
@@ -74,19 +74,20 @@ model RecurringTemplate {
 }
 
 model Category {
-  id                   String              @id @default(uuid())
+  id                   String               @id @default(uuid())
   name                 String
   type                 TransactionType
   color                String?
   icon                 String?
-  isDefault            Boolean             @default(false)
+  isDefault            Boolean              @default(false)
   // Se true, entradas com esta categoria contam como "entrada válida" no cálculo
   // do percentual de despesas sobre entradas (transferências ficam false).
-  includeInBalanceBase Boolean             @default(true)
+  includeInBalanceBase Boolean              @default(true)
   userId               String
-  user                 User                @relation(fields: [userId], references: [id])
+  user                 User                 @relation(fields: [userId], references: [id])
   transactions         Transaction[]
   recurringTemplates   RecurringTemplate[]
+  creditCardPurchases  CreditCardPurchase[]
 
   @@index([userId])
 }
@@ -192,16 +193,19 @@ model CreditCard {
 }
 
 model CreditCardPurchase {
-  id                String   @id @default(uuid())
+  id                String     @id @default(uuid())
   description       String
   totalAmount       Float
   installmentsCount Int
   purchaseDate      DateTime
-  isCredit          Boolean  @default(false)
+  isCredit          Boolean    @default(false)
   cardId            String
   card              CreditCard @relation(fields: [cardId], references: [id])
   userId            String
   user              User       @relation(fields: [userId], references: [id])
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
 
   originInvoiceId String?
   originInvoice   CreditCardInvoice? @relation("PurchaseOrigin", fields: [originInvoiceId], references: [id])
@@ -211,7 +215,7 @@ model CreditCardPurchase {
   templateId String?
   template   RecurringTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
-  createdAt    DateTime @default(now())
+  createdAt    DateTime                @default(now())
   installments CreditCardInstallment[]
   advances     InstallmentAdvance[]
 
@@ -219,15 +223,16 @@ model CreditCardPurchase {
   @@index([userId])
   @@index([cardId])
   @@index([templateId])
+  @@index([categoryId])
 }
 
 model CreditCardInstallment {
-  id         String   @id @default(uuid())
+  id         String @id @default(uuid())
   number     Int
   totalCount Int
   amount     Float
 
-  isAnticipated Boolean @default(false)
+  isAnticipated Boolean             @default(false)
   advanceId     String?
   advance       InstallmentAdvance? @relation(fields: [advanceId], references: [id])
 
@@ -249,10 +254,10 @@ model CreditCardInvoice {
   referenceMonth Int
   referenceYear  Int
 
-  closingDate DateTime
-  dueDate     DateTime
-  paymentDate DateTime
-  paymentDateOverridden Boolean @default(false)
+  closingDate           DateTime
+  dueDate               DateTime
+  paymentDate           DateTime
+  paymentDateOverridden Boolean  @default(false)
 
   cardId String
   card   CreditCard @relation(fields: [cardId], references: [id])
@@ -266,7 +271,7 @@ model CreditCardInvoice {
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
 
   installments       CreditCardInstallment[]
-  remainderPurchases CreditCardPurchase[] @relation("PurchaseOrigin")
+  remainderPurchases CreditCardPurchase[]    @relation("PurchaseOrigin")
   advances           InstallmentAdvance[]
 
   createdAt DateTime @default(now())
@@ -278,7 +283,7 @@ model CreditCardInvoice {
 }
 
 model InstallmentAdvance {
-  id                String   @id @default(uuid())
+  id                String             @id @default(uuid())
   purchaseId        String
   purchase          CreditCardPurchase @relation(fields: [purchaseId], references: [id])
   invoiceId         String
@@ -289,7 +294,7 @@ model InstallmentAdvance {
   originalAmount    Float
   paidAmount        Float
   discount          Float
-  anticipatedAt     DateTime @default(now())
+  anticipatedAt     DateTime           @default(now())
 
   anticipatedInstallments CreditCardInstallment[]
 
@@ -324,17 +329,17 @@ enum NotificationType {
 }
 
 model Notification {
-  id         String           @id @default(uuid())
-  userId     String
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type       NotificationType
-  title      String
-  body       String
-  data       Json?
-  readAt     DateTime?
+  id        String           @id @default(uuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
   // {type}:{entityId}:{YYYY-MM-DD} — used by the cron job to skip already-sent notifications
-  dedupeKey  String?
-  createdAt  DateTime         @default(now())
+  dedupeKey String?
+  createdAt DateTime         @default(now())
 
   @@index([userId])
   @@index([userId, dedupeKey])

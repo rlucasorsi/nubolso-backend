@@ -79,6 +79,7 @@ export class CreditCardPurchasesService {
             purchaseDate: new Date(dto.purchaseDate),
             cardId: card.id,
             userId,
+            categoryId: dto.categoryId ?? null,
           },
         });
 
@@ -124,6 +125,7 @@ export class CreditCardPurchasesService {
             isCredit: true,
             cardId: card.id,
             userId,
+            categoryId: dto.categoryId ?? null,
           },
         });
 
