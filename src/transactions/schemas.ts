@@ -25,6 +25,7 @@ export const updateTransactionSchema = z.object({
   date: isoDate.optional(),
   isPaid: z.boolean().optional(),
   categoryId: z.string().uuid().optional(),
+  templateId: z.string().uuid().nullable().optional(),
 });
 
 export const queryTransactionSchema = z.object({

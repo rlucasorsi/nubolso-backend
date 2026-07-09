@@ -96,15 +96,41 @@ export class TransactionsService {
       const effectiveType = data.type ?? existing.type;
       const tipoDespesa = effectiveType === 'EXPENSE' ? data.tipoDespesa : null;
 
-      return tx.transaction.update({
-        where: { id, userId },
-        data: {
-          ...data,
-          tipoDespesa,
-          date: data.date ? new Date(data.date) : undefined,
-        },
-        include: { category: true },
-      });
+      if (data.templateId) {
+        const template = await tx.recurringTemplate.findFirst({
+          where: { id: data.templateId, userId },
+        });
+        if (!template) {
+          throw new NotFoundException('Recurring template not found');
+        }
+        if (template.type !== effectiveType) {
+          throw new BadRequestException(
+            'O tipo do lançamento deve ser igual ao tipo da recorrência',
+          );
+        }
+      }
+
+      try {
+        return await tx.transaction.update({
+          where: { id, userId },
+          data: {
+            ...data,
+            tipoDespesa,
+            date: data.date ? new Date(data.date) : undefined,
+          },
+          include: { category: true },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2002'
+        ) {
+          throw new BadRequestException(
+            'Já existe um lançamento vinculado a essa recorrência nesta data',
+          );
+        }
+        throw error;
+      }
     });
   }
 
