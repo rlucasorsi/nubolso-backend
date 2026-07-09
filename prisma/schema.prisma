@@ -84,6 +84,9 @@ model Category {
   // Se true, entradas com esta categoria contam como "entrada válida" no cálculo
   // do percentual de despesas sobre entradas (transferências ficam false).
   includeInBalanceBase Boolean              @default(true)
+  // Direção do orçamento: LIMIT = estourar é ruim (ex.: Gasolina), GOAL = atingir
+  // é bom (ex.: Investimento). Padrão por tipo na criação, mas o usuário escolhe.
+  budgetDirection      BudgetDirection      @default(LIMIT)
   userId               String
   user                 User                 @relation(fields: [userId], references: [id])
   transactions         Transaction[]
@@ -92,6 +95,11 @@ model Category {
   categoryBudgets      CategoryBudget[]
 
   @@index([userId])
+}
+
+enum BudgetDirection {
+  LIMIT
+  GOAL
 }
 
 // Orçamento definido pelo usuário para uma categoria, escopado a um ciclo

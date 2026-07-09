@@ -72,7 +72,28 @@ export class NotificationsBudgetCronService {
     for (const budget of budgets) {
       const spent = spentByCategory.get(budget.categoryId) ?? 0;
       const categoryName = budget.category.name;
-      if (spent >= budget.amount) {
+      const reached = spent >= budget.amount;
+
+      // GOAL (ex.: Investimento): atingir a meta é bom — avisa uma vez, sem
+      // alerta de "quase lá" (não há motivo pra preocupação nesse caso).
+      if (budget.category.budgetDirection === 'GOAL') {
+        if (reached) {
+          await this.notify(
+            userId,
+            budget.categoryId,
+            'goal-reached',
+            period.startDate,
+            {
+              title: `Meta de ${categoryName} atingida!`,
+              body: `Você já alcançou R$ ${spent.toFixed(2)} de uma meta de R$ ${budget.amount.toFixed(2)} neste ciclo.`,
+            },
+          );
+        }
+        continue;
+      }
+
+      // LIMIT (ex.: Gasolina): estourar é ruim.
+      if (reached) {
         await this.notify(userId, budget.categoryId, 'over', period.startDate, {
           title: `Orçamento de ${categoryName} estourado`,
           body: `Você já gastou R$ ${spent.toFixed(2)} de um orçamento de R$ ${budget.amount.toFixed(2)} neste ciclo.`,
@@ -95,7 +116,7 @@ export class NotificationsBudgetCronService {
   private async notify(
     userId: string,
     categoryId: string,
-    status: 'over' | 'approaching',
+    status: 'over' | 'approaching' | 'goal-reached',
     periodStartDate: string,
     { title, body }: { title: string; body: string },
   ) {

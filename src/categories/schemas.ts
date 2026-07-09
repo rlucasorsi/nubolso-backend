@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const transactionType = z.enum(['INCOME', 'EXPENSE', 'INVESTMENT']);
+const budgetDirection = z.enum(['LIMIT', 'GOAL']);
 
 const hexColor = z
   .string()
@@ -15,6 +16,7 @@ export const createCategorySchema = z.object({
   color: hexColor.optional(),
   icon: z.string().max(50).optional(),
   includeInBalanceBase: z.boolean().optional(),
+  budgetDirection: budgetDirection.optional(),
 });
 
 export const updateCategorySchema = z.object({
@@ -23,6 +25,7 @@ export const updateCategorySchema = z.object({
   color: hexColor.optional(),
   icon: z.string().max(50).optional(),
   includeInBalanceBase: z.boolean().optional(),
+  budgetDirection: budgetDirection.optional(),
 });
 
 export type CreateCategoryDto = z.infer<typeof createCategorySchema>;

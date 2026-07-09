@@ -22,8 +22,12 @@ export class CategoriesService {
   }
 
   async create(userId: string, data: CreateCategoryDto) {
+    // Padrão sensato por tipo — investimento é meta a atingir (verde ao bater),
+    // o resto é limite de gasto (vermelho ao estourar). O usuário pode trocar.
+    const budgetDirection =
+      data.budgetDirection ?? (data.type === 'INVESTMENT' ? 'GOAL' : 'LIMIT');
     return this.prisma.withUser(userId, (tx) =>
-      tx.category.create({ data: { ...data, userId } }),
+      tx.category.create({ data: { ...data, budgetDirection, userId } }),
     );
   }
 
