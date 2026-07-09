@@ -46,6 +46,7 @@ model User {
   importBatches              ImportBatch[]
   notifications              Notification[]
   pushSubscriptions          PushSubscription[]
+  categoryBudgets            CategoryBudget[]
 }
 
 model RecurringTemplate {
@@ -88,8 +89,28 @@ model Category {
   transactions         Transaction[]
   recurringTemplates   RecurringTemplate[]
   creditCardPurchases  CreditCardPurchase[]
+  categoryBudgets      CategoryBudget[]
 
   @@index([userId])
+}
+
+// Orçamento definido pelo usuário para uma categoria, escopado a um ciclo
+// específico (periodStart = início do ciclo, mesmo cálculo do frontend em
+// getPeriodForDate/period.util.ts). Cada categoria pode ter no máximo um
+// valor por período — sem repetição automática entre períodos.
+model CategoryBudget {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  periodStart DateTime
+  amount      Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([categoryId, periodStart])
+  @@index([userId, periodStart])
 }
 
 model Transaction {
@@ -325,6 +346,7 @@ enum NotificationType {
   RECURRING_DUE
   INVOICE_DUE
   BALANCE_WARNING
+  BUDGET_WARNING
   GENERIC
 }
 

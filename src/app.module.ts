@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { CategoriesModule } from './categories/categories.module';
+import { CategoryBudgetsModule } from './category-budgets/category-budgets.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { RecurringTemplatesModule } from './recurring-templates/recurring-templates.module';
 import { GoalsModule } from './goals/goals.module';
@@ -42,6 +43,7 @@ import { loggerConfig } from './common/logger/logger.config';
     AuthModule,
     UsersModule,
     CategoriesModule,
+    CategoryBudgetsModule,
     TransactionsModule,
     RecurringTemplatesModule,
     GoalsModule,
