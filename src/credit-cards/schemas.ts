@@ -42,6 +42,11 @@ export const updateInvoiceSchema = z.object({
   paymentDate: isoDate,
 });
 
+export const advanceInvoicePaymentSchema = z.object({
+  amount: z.number().positive('Valor deve ser positivo'),
+  paymentDate: isoDate,
+});
+
 export const anticipateInstallmentsSchema = z.object({
   purchaseId: z.string().uuid('purchaseId inválido'),
   installmentsCount: z.number().int().min(1),
@@ -63,6 +68,9 @@ export type UpdateCreditCardDto = z.infer<typeof updateCreditCardSchema>;
 export type CreatePurchaseDto = z.infer<typeof createPurchaseSchema>;
 export type PayInvoiceDto = z.infer<typeof payInvoiceSchema>;
 export type UpdateInvoiceDto = z.infer<typeof updateInvoiceSchema>;
+export type AdvanceInvoicePaymentDto = z.infer<
+  typeof advanceInvoicePaymentSchema
+>;
 export type AnticipateInstallmentsDto = z.infer<
   typeof anticipateInstallmentsSchema
 >;

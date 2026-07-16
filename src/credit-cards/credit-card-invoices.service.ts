@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PayInvoiceDto } from './dto/pay-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import type { AnticipateInstallmentsDto } from './dto/anticipate-installments.dto';
+import type { AdvanceInvoicePaymentDto } from './dto/advance-invoice-payment.dto';
 import {
   addMonths,
   computeInvoiceDates,
@@ -29,6 +30,10 @@ function computeTotal(
     .reduce((sum, i) => sum + i.amount, 0);
   const advanceTotal = advances.reduce((sum, a) => sum + a.paidAmount, 0);
   return installmentTotal + advanceTotal;
+}
+
+function computeAdvancedAmount(advancePayments: { amount: number }[] = []) {
+  return advancePayments.reduce((sum, p) => sum + p.amount, 0);
 }
 
 // Price (French amortization) installment value
@@ -58,6 +63,7 @@ export class CreditCardInvoicesService {
         include: {
           installments: { include: { purchase: true } },
           advances: true,
+          advancePayments: true,
           transaction: true,
         },
         orderBy: [{ referenceYear: 'asc' }, { referenceMonth: 'asc' }],
@@ -66,6 +72,7 @@ export class CreditCardInvoicesService {
       return invoices.map((invoice) => ({
         ...invoice,
         totalAmount: computeTotal(invoice.installments, invoice.advances),
+        advancedAmount: computeAdvancedAmount(invoice.advancePayments),
       }));
     });
   }
@@ -87,6 +94,7 @@ export class CreditCardInvoicesService {
             include: { purchase: { select: { templateId: true } } },
           },
           advances: true,
+          advancePayments: true,
           transaction: true,
           card: true,
         },
@@ -96,6 +104,7 @@ export class CreditCardInvoicesService {
       return invoices.map((invoice) => ({
         ...invoice,
         totalAmount: computeTotal(invoice.installments, invoice.advances),
+        advancedAmount: computeAdvancedAmount(invoice.advancePayments),
       }));
     });
   }
@@ -136,7 +145,11 @@ export class CreditCardInvoicesService {
         const paymentDate = dto.paymentDate
           ? new Date(dto.paymentDate)
           : invoice.paymentDate;
-        const isFullPayment = dto.amount >= invoice.totalAmount - 0.005;
+        // O valor já debitado via adiantamentos (advance-payment) não passa de
+        // novo pela conta aqui — só o restante (dto.amount) é cobrado agora.
+        const advancedAmount = invoice.advancedAmount;
+        const remainingAmount = invoice.totalAmount - advancedAmount;
+        const isFullPayment = dto.amount >= remainingAmount - 0.005;
 
         const transaction = invoice.transactionId
           ? await tx.transaction.update({
@@ -158,7 +171,7 @@ export class CreditCardInvoicesService {
           where: { id, userId },
           data: {
             isPaid: true,
-            paidAmount: dto.amount,
+            paidAmount: advancedAmount + dto.amount,
             paymentDate,
             paymentDateOverridden: true,
             transactionId: transaction.id,
@@ -166,6 +179,7 @@ export class CreditCardInvoicesService {
           include: {
             installments: true,
             advances: true,
+            advancePayments: true,
             transaction: true,
             card: true,
           },
@@ -174,7 +188,7 @@ export class CreditCardInvoicesService {
         // Partial payment: roll the remainder into a new purchase, re-parceled
         // starting the month after this invoice's reference month.
         if (!isFullPayment) {
-          const remainderAmount = invoice.totalAmount - dto.amount;
+          const remainderAmount = remainingAmount - dto.amount;
           const installmentsCount = dto.remainderInstallments ?? 1;
 
           let totalRemainder: number;
@@ -234,6 +248,7 @@ export class CreditCardInvoicesService {
         return {
           ...updated,
           totalAmount: computeTotal(updated.installments, updated.advances),
+          advancedAmount: computeAdvancedAmount(updated.advancePayments),
         };
       },
       { timeout: 15000 },
@@ -339,6 +354,7 @@ export class CreditCardInvoicesService {
           include: {
             installments: { include: { purchase: true } },
             advances: { include: { purchase: true } },
+            advancePayments: true,
             transaction: true,
           },
         });
@@ -348,6 +364,7 @@ export class CreditCardInvoicesService {
           include: {
             installments: { include: { purchase: true } },
             advances: true,
+            advancePayments: true,
           },
         });
 
@@ -359,10 +376,14 @@ export class CreditCardInvoicesService {
               updatedInvoice.installments,
               updatedInvoice.advances,
             ),
+            advancedAmount: computeAdvancedAmount(
+              updatedInvoice.advancePayments,
+            ),
           },
           affectedInvoices: affectedInvoices.map((inv) => ({
             ...inv,
             totalAmount: computeTotal(inv.installments, inv.advances),
+            advancedAmount: computeAdvancedAmount(inv.advancePayments),
           })),
         };
       },
@@ -389,6 +410,7 @@ export class CreditCardInvoicesService {
         include: {
           installments: { include: { purchase: true } },
           advances: { include: { purchase: true } },
+          advancePayments: true,
           transaction: true,
           card: true,
         },
@@ -397,6 +419,7 @@ export class CreditCardInvoicesService {
       return {
         ...invoice,
         totalAmount: computeTotal(invoice.installments, invoice.advances),
+        advancedAmount: computeAdvancedAmount(invoice.advancePayments),
       };
     });
   }
@@ -449,6 +472,7 @@ export class CreditCardInvoicesService {
           include: {
             installments: true,
             advances: true,
+            advancePayments: true,
             transaction: true,
             card: true,
           },
@@ -457,6 +481,7 @@ export class CreditCardInvoicesService {
         return {
           ...updated,
           totalAmount: computeTotal(updated.installments, updated.advances),
+          advancedAmount: computeAdvancedAmount(updated.advancePayments),
         };
       },
       { timeout: 15000 },
@@ -473,6 +498,7 @@ export class CreditCardInvoicesService {
       include: {
         installments: { include: { purchase: true } },
         advances: true,
+        advancePayments: true,
         transaction: true,
         card: true,
         remainderPurchases: true,
@@ -484,6 +510,65 @@ export class CreditCardInvoicesService {
     return {
       ...invoice,
       totalAmount: computeTotal(invoice.installments, invoice.advances),
+      advancedAmount: computeAdvancedAmount(invoice.advancePayments),
     };
+  }
+
+  async advancePayment(
+    userId: string,
+    id: string,
+    dto: AdvanceInvoicePaymentDto,
+  ) {
+    return this.prisma.withUser(userId, async (tx) => {
+      const invoice = await this.findOneInTx(tx, userId, id);
+      if (invoice.isPaid) {
+        throw new BadRequestException('Fatura já paga');
+      }
+
+      // Só a fatura vigente (a próxima a vencer, ainda não paga) pode receber
+      // adiantamento. Faturas posteriores ainda vão acumular novas compras
+      // até virarem a vigente, então antecipar contra elas não faz sentido.
+      const currentInvoice = await tx.creditCardInvoice.findFirst({
+        where: { cardId: invoice.cardId, userId, isPaid: false },
+        orderBy: { paymentDate: 'asc' },
+      });
+      if (!currentInvoice || currentInvoice.id !== invoice.id) {
+        throw new UnprocessableEntityException(
+          'Só é possível adiantar pagamento da fatura vigente',
+        );
+      }
+
+      const remainingAmount = invoice.totalAmount - invoice.advancedAmount;
+      if (dto.amount > remainingAmount + 0.005) {
+        throw new BadRequestException(
+          'O valor do adiantamento não pode ser maior que o restante da fatura',
+        );
+      }
+
+      const paymentDate = new Date(dto.paymentDate);
+
+      const transaction = await tx.transaction.create({
+        data: {
+          description: `Adiantamento fatura ${invoice.card.name} ${String(invoice.referenceMonth).padStart(2, '0')}/${invoice.referenceYear}`,
+          amount: dto.amount,
+          type: 'EXPENSE',
+          date: paymentDate,
+          isPaid: true,
+          userId,
+        },
+      });
+
+      await tx.creditCardInvoiceAdvancePayment.create({
+        data: {
+          invoiceId: invoice.id,
+          userId,
+          amount: dto.amount,
+          paymentDate,
+          transactionId: transaction.id,
+        },
+      });
+
+      return this.findOneInTx(tx, userId, id);
+    });
   }
 }

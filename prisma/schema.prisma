@@ -12,41 +12,42 @@ datasource db {
 }
 
 model User {
-  id                         String               @id @default(uuid())
-  email                      String               @unique
-  passwordHash               String?
-  name                       String
-  googleId                   String?              @unique
-  isEmailVerified            Boolean              @default(true)
-  verificationCode           String?
-  verificationCodeExpiresAt  DateTime?
-  verificationAttempts       Int                  @default(0)
-  passwordResetCode          String?
-  passwordResetCodeExpiresAt DateTime?
-  currentBalance             Float                @default(0)
-  balanceStartDate           DateTime?
-  greenThreshold             Float                @default(0)
-  yellowThreshold            Float                @default(0)
-  cashflowStartDay           Int                  @default(1)
-  ofxBankId                  String?
-  ofxAcctId                  String?
-  stripeCustomerId           String?              @unique
-  stripeSubscriptionId       String?              @unique
-  plan                       Plan                 @default(FREE)
-  planExpiresAt              DateTime?
-  createdAt                  DateTime             @default(now())
-  transactions               Transaction[]
-  recurringTemplates         RecurringTemplate[]
-  categories                 Category[]
-  goals                      Goal[]
-  creditCards                CreditCard[]
-  creditCardPurchases        CreditCardPurchase[]
-  creditCardInvoices         CreditCardInvoice[]
-  installmentAdvances        InstallmentAdvance[]
-  importBatches              ImportBatch[]
-  notifications              Notification[]
-  pushSubscriptions          PushSubscription[]
-  categoryBudgets            CategoryBudget[]
+  id                               String                            @id @default(uuid())
+  email                            String                            @unique
+  passwordHash                     String?
+  name                             String
+  googleId                         String?                           @unique
+  isEmailVerified                  Boolean                           @default(true)
+  verificationCode                 String?
+  verificationCodeExpiresAt        DateTime?
+  verificationAttempts             Int                               @default(0)
+  passwordResetCode                String?
+  passwordResetCodeExpiresAt       DateTime?
+  currentBalance                   Float                             @default(0)
+  balanceStartDate                 DateTime?
+  greenThreshold                   Float                             @default(0)
+  yellowThreshold                  Float                             @default(0)
+  cashflowStartDay                 Int                               @default(1)
+  ofxBankId                        String?
+  ofxAcctId                        String?
+  stripeCustomerId                 String?                           @unique
+  stripeSubscriptionId             String?                           @unique
+  plan                             Plan                              @default(FREE)
+  planExpiresAt                    DateTime?
+  createdAt                        DateTime                          @default(now())
+  transactions                     Transaction[]
+  recurringTemplates               RecurringTemplate[]
+  categories                       Category[]
+  goals                            Goal[]
+  creditCards                      CreditCard[]
+  creditCardPurchases              CreditCardPurchase[]
+  creditCardInvoices               CreditCardInvoice[]
+  installmentAdvances              InstallmentAdvance[]
+  creditCardInvoiceAdvancePayments CreditCardInvoiceAdvancePayment[]
+  importBatches                    ImportBatch[]
+  notifications                    Notification[]
+  pushSubscriptions                PushSubscription[]
+  categoryBudgets                  CategoryBudget[]
 }
 
 model RecurringTemplate {
@@ -145,7 +146,8 @@ model Transaction {
   importBatchId String?
   importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
 
-  creditCardInvoice CreditCardInvoice?
+  creditCardInvoice               CreditCardInvoice?
+  creditCardInvoiceAdvancePayment CreditCardInvoiceAdvancePayment?
 
   @@unique([templateId, date])
   @@unique([userId, fitId])
@@ -300,8 +302,9 @@ model CreditCardInvoice {
   transaction   Transaction? @relation(fields: [transactionId], references: [id])
 
   installments       CreditCardInstallment[]
-  remainderPurchases CreditCardPurchase[]    @relation("PurchaseOrigin")
+  remainderPurchases CreditCardPurchase[]              @relation("PurchaseOrigin")
   advances           InstallmentAdvance[]
+  advancePayments    CreditCardInvoiceAdvancePayment[]
 
   createdAt DateTime @default(now())
 
@@ -309,6 +312,28 @@ model CreditCardInvoice {
   @@index([userId])
   @@index([cardId])
   @@index([paymentDate])
+}
+
+// Débito registrado contra uma fatura ainda aberta (antes do fechamento),
+// sem marcá-la como paga. É abatido do valor cobrado quando a fatura
+// realmente fecha e é paga via CreditCardInvoicesService.pay.
+model CreditCardInvoiceAdvancePayment {
+  id        String            @id @default(uuid())
+  invoiceId String
+  invoice   CreditCardInvoice @relation(fields: [invoiceId], references: [id])
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+
+  amount      Float
+  paymentDate DateTime
+
+  transactionId String      @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([userId])
 }
 
 model InstallmentAdvance {

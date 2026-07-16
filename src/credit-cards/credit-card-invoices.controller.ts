@@ -18,10 +18,12 @@ import {
   updateInvoiceSchema,
   payInvoiceSchema,
   anticipateInstallmentsSchema,
+  advanceInvoicePaymentSchema,
 } from './schemas';
 import type { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import type { PayInvoiceDto } from './dto/pay-invoice.dto';
 import type { AnticipateInstallmentsDto } from './dto/anticipate-installments.dto';
+import type { AdvanceInvoicePaymentDto } from './dto/advance-invoice-payment.dto';
 
 @Controller('credit-cards')
 @UseGuards(JwtAuthGuard)
@@ -63,6 +65,16 @@ export class CreditCardInvoicesController {
   @Post('invoices/:id/reopen')
   reopen(@CurrentUser() user: JwtUser, @Param('id') id: string) {
     return this.invoicesService.reopen(user.sub, id);
+  }
+
+  @Post('invoices/:id/advance-payment')
+  advancePayment(
+    @CurrentUser() user: JwtUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(advanceInvoicePaymentSchema))
+    data: AdvanceInvoicePaymentDto,
+  ) {
+    return this.invoicesService.advancePayment(user.sub, id, data);
   }
 
   @Get(':cardId/invoices')
