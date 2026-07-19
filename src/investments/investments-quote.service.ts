@@ -144,7 +144,11 @@ export class InvestmentsQuoteService {
           symbol: q.symbol!.replace(/\.SA$/, ''),
           name: q.shortname ?? q.longname ?? q.symbol!,
           exchange: q.exchange ?? null,
-        }));
+        }))
+        // B3 lista o mesmo papel duas vezes: lote padrão (PETR4) e mercado
+        // fracionário (PETR4F). Não faz sentido diferenciar pro usuário, só
+        // polui a lista de sugestões - mantém apenas o lote padrão.
+        .filter((r) => !/\dF$/.test(r.symbol));
 
       this.searchCache.set(cacheKey, {
         data: results,

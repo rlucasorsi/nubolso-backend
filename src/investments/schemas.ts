@@ -4,7 +4,13 @@ const isoDate = z
   .string()
   .refine((s) => !isNaN(Date.parse(s)), { message: 'Data inválida' });
 
-export const investmentTypeEnum = z.enum(['CDB', 'FII', 'STOCK', 'OTHER']);
+export const investmentTypeEnum = z.enum([
+  'CDB',
+  'FII',
+  'STOCK',
+  'ETF',
+  'OTHER',
+]);
 export const investmentMovementTypeEnum = z.enum([
   'CONTRIBUTION',
   'YIELD',
@@ -21,11 +27,14 @@ export const createInvestmentSchema = z
     currentBalance: z.number().min(0).optional(),
   })
   .superRefine((data, ctx) => {
-    if ((data.type === 'FII' || data.type === 'STOCK') && !data.ticker) {
+    if (
+      (data.type === 'FII' || data.type === 'STOCK' || data.type === 'ETF') &&
+      !data.ticker
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['ticker'],
-        message: 'Ticker é obrigatório para FIIs e ações',
+        message: 'Ticker é obrigatório para FIIs, ações e ETFs',
       });
     }
   });
