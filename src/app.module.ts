@@ -17,6 +17,7 @@ import { CategoryBudgetsModule } from './category-budgets/category-budgets.modul
 import { TransactionsModule } from './transactions/transactions.module';
 import { RecurringTemplatesModule } from './recurring-templates/recurring-templates.module';
 import { GoalsModule } from './goals/goals.module';
+import { InvestmentsModule } from './investments/investments.module';
 import { CreditCardsModule } from './credit-cards/credit-cards.module';
 import { ImportsModule } from './imports/imports.module';
 import { SupportModule } from './support/support.module';
@@ -47,6 +48,7 @@ import { loggerConfig } from './common/logger/logger.config';
     TransactionsModule,
     RecurringTemplatesModule,
     GoalsModule,
+    InvestmentsModule,
     CreditCardsModule,
     ImportsModule,
     SupportModule,

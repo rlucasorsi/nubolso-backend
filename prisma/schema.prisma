@@ -39,6 +39,7 @@ model User {
   recurringTemplates               RecurringTemplate[]
   categories                       Category[]
   goals                            Goal[]
+  investments                      Investment[]
   creditCards                      CreditCard[]
   creditCardPurchases              CreditCardPurchase[]
   creditCardInvoices               CreditCardInvoice[]
@@ -203,6 +204,54 @@ model GoalContribution {
   createdAt   DateTime @default(now())
 
   @@index([goalId])
+}
+
+enum InvestmentType {
+  CDB
+  FII
+  STOCK
+  OTHER
+}
+
+enum InvestmentMovementType {
+  CONTRIBUTION // aporte (+) / retirada (-)
+  YIELD // provento/dividendo, sempre positivo, não altera currentBalance
+  ADJUSTMENT // ajuste de saldo manual (mark-to-market), + ou -
+}
+
+// Módulo de acompanhamento de investimentos (CDB, FII, ações), independente
+// do fluxo de caixa hoje — não gera Transaction nem afeta o saldo do dashboard.
+model Investment {
+  id             String               @id @default(uuid())
+  name           String
+  type           InvestmentType
+  // Só preenchido/obrigatório (validado no Zod) para FII e STOCK.
+  ticker         String?
+  // Percentual do CDI que o CDB rende (ex: 110 = 110% do CDI). Só faz sentido
+  // pra type = CDB; puramente informativo, não entra no cálculo de currentBalance.
+  cdiPercentage  Float?
+  // Banco/corretora onde o investimento está alocado (ex: "Nubank", "Clear").
+  institution    String?
+  currentBalance Float                @default(0)
+  userId         String
+  user           User                 @relation(fields: [userId], references: [id])
+  createdAt      DateTime             @default(now())
+  movements      InvestmentMovement[]
+
+  @@index([userId])
+}
+
+model InvestmentMovement {
+  id           String                 @id @default(uuid())
+  amount       Float
+  description  String
+  date         DateTime
+  type         InvestmentMovementType
+  investmentId String
+  investment   Investment             @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime               @default(now())
+
+  @@index([investmentId])
 }
 
 model CreditCard {
