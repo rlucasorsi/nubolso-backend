@@ -113,6 +113,8 @@ export class InvestmentsService {
           amount: data.amount,
           date: data.date ? new Date(data.date) : new Date(),
           description: data.description ?? defaultDescription(data.type),
+          shareQuantity: data.shareQuantity ?? null,
+          pricePerShare: data.pricePerShare ?? null,
         },
       });
 

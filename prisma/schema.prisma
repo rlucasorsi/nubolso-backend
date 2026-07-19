@@ -250,6 +250,10 @@ model InvestmentMovement {
   type         InvestmentMovementType
   investmentId String
   investment   Investment             @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  // Quantidade de cotas/ações e preço unitário — só relevante para
+  // movimentos de FII/STOCK/ETF. Null em CDB e outros tipos.
+  shareQuantity  Float?
+  pricePerShare  Float?
   createdAt    DateTime               @default(now())
 
   @@index([investmentId])

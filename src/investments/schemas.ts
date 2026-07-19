@@ -56,6 +56,8 @@ export const createInvestmentMovementSchema = z
       .refine((n) => n !== 0, { message: 'Valor não pode ser zero' }),
     date: isoDate.optional(),
     description: z.string().optional(),
+    shareQuantity: z.number().positive().optional(),
+    pricePerShare: z.number().positive().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'YIELD' && data.amount < 0) {
