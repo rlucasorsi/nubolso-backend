@@ -42,8 +42,12 @@ export const queryTransactionSchema = z.object({
       return val;
     }, z.boolean())
     .optional(),
-  // 'main' (padrão) exclui ignorados; 'ignored' traz só os ignorados; 'all' não filtra.
-  view: z.enum(['main', 'ignored', 'all']).default('main'),
+  // 'all' (padrão, preserva comportamento pré-existente p/ quem não filtra) não
+  // filtra; 'main' exclui ignorados; 'ignored' traz só os ignorados. Vários
+  // consumidores (ex.: motor de fluxo de caixa) dependem de ver os ignorados
+  // mesmo sem passar `view` explicitamente, para não regenerar a estimativa
+  // virtual daquela ocorrência.
+  view: z.enum(['main', 'ignored', 'all']).default('all'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
