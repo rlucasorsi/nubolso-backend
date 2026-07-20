@@ -21,6 +21,7 @@ export class TransactionsService {
       tipoDespesa,
       categoryId,
       isPaid,
+      view,
       page,
       limit,
     } = query;
@@ -30,6 +31,7 @@ export class TransactionsService {
       type,
       categoryId,
       isPaid,
+      isSkipped: view === 'all' ? undefined : view === 'ignored',
       date: {
         gte: startDate ? new Date(startDate) : undefined,
         lte: endDate ? new Date(endDate) : undefined,
@@ -141,6 +143,23 @@ export class TransactionsService {
       return tx.transaction.update({
         where: { id, userId },
         data: { isPaid: !transaction.isPaid },
+        include: { category: true },
+      });
+    });
+  }
+
+  // Restaura um lançamento ignorado para pending, sem apagar histórico.
+  async unskip(userId: string, id: string) {
+    return this.prisma.withUser(userId, async (tx) => {
+      const transaction = await this.findOne(tx, userId, id);
+
+      if (!transaction.isSkipped) {
+        throw new BadRequestException('Este lançamento não está ignorado');
+      }
+
+      return tx.transaction.update({
+        where: { id, userId },
+        data: { isSkipped: false },
         include: { category: true },
       });
     });

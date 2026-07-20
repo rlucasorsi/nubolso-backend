@@ -51,6 +51,11 @@ export class TransactionsController {
     return this.transactionsService.togglePaid(user.sub, id);
   }
 
+  @Patch(':id/unskip')
+  unskip(@CurrentUser() user: JwtUser, @Param('id') id: string) {
+    return this.transactionsService.unskip(user.sub, id);
+  }
+
   @Patch(':id')
   update(
     @CurrentUser() user: JwtUser,
