@@ -169,7 +169,19 @@ export class TransactionsService {
     return this.prisma.withUser(userId, async (tx) => {
       await this.findOne(tx, userId, id);
 
-      return tx.transaction.delete({ where: { id, userId } });
+      try {
+        return await tx.transaction.delete({ where: { id, userId } });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2003'
+        ) {
+          throw new BadRequestException(
+            'Este lançamento está vinculado a um adiantamento de fatura e não pode ser excluído diretamente',
+          );
+        }
+        throw error;
+      }
     });
   }
 
